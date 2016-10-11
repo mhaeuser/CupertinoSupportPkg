@@ -1,7 +1,7 @@
 /** @file
   Virtual memory functions.
 
-  Copyright (C) 2012 - 2014 Damir Mazar.  All rights reserved.<BR>
+  Copyright (C) 2012 - 2014 Damir Mažar.  All rights reserved.<BR>
   Portions Copyright (C) 2015 - 2016 CupertinoNet.  All rights reserved.<BR>
 
   Redistribution and use in source and binary forms, with or without
@@ -33,8 +33,9 @@
 
 #include <MiscBase.h>
 
-#include <Library/UefiLib.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/DebugLib.h>
+#include <Library/UefiLib.h>
 #include <Library/VirtualMemoryLib.h>
 
 // VM_MEMORY_POOL_SIZE
@@ -43,23 +44,29 @@
 // mVmMemoryPool
 /// Memory allocation for VM map pages that we will create with VmMapVirtualPage.
 /// We need to have it preallocated during boot services.
-static VOID *mVmMemoryPool = NULL;
+STATIC VOID *mVmMemoryPool = NULL;
 
 // mVmMemoryPoolFreePages
-static INTN mVmMemoryPoolFreePages = 0;
+STATIC UINTN mVmMemoryPoolFreePages = 0;
 
 // GetCurrentPageTable
-VOID
+/// Returns pointer to PML4 table in PageTable and PWT and PCD flags in Flags.
+PAGE_MAP_AND_DIRECTORY_PTR *
 GetCurrentPageTable (
-  OUT PAGE_MAP_AND_DIRECTORY_PTR  **PageTable,
-  OUT UINTN                       *Flags
+  OUT UINTN  *Flags OPTIONAL
   )
 {
   UINTN Cr3;
 
-  Cr3        = AsmReadCr3 ();
-  *PageTable = (PAGE_MAP_AND_DIRECTORY_PTR *)APPLY_MASK (Cr3, CR3_ADDRESS_MASK);
-  *Flags     = SELECT_BITS (Cr3, JOIN_BITS (CR3_FLAG_PWT, CR3_FLAG_PCD));
+  ASSERT (Flags != NULL);
+
+  Cr3 = AsmReadCr3 ();
+
+  if (Flags != NULL) {
+    *Flags = SELECT_BITS (Cr3, JOIN_BITS (CR3_FLAG_PWT, CR3_FLAG_PCD));
+  }
+
+  return (PAGE_MAP_AND_DIRECTORY_PTR *)APPLY_MASK (Cr3, CR3_ADDRESS_MASK);
 }
 
 // GetPhysicalAddress
@@ -80,19 +87,28 @@ GetPhysicalAddress (
   PAGE_MAP_AND_DIRECTORY_PTR *PageDirectoryEntry;
   PAGE_TABLE_ENTRY_PTR       PageTableEntry;
 
-  Status                                       = EFI_NO_MAPPING;
-  VirtualPage.Address                          = VirtualAddress;
-  PageTable                                   += VirtualPage.Page4Kb.PageMapLevel4Offset;
+  ASSERT (PageTable != NULL);
+  ASSERT (VirtualAddress != 0);
+  ASSERT (PhysicalAddress != NULL);
+
+  Status = EFI_NO_MAPPING;
+
+  VirtualPage.Address = VirtualAddress;
+  PageTable          += VirtualPage.Page4Kb.PageMapLevel4Offset;
+
   VirtualPageStart.Address                     = 0;
   VirtualPageStart.Page4Kb.PageMapLevel4Offset = VirtualPage.Page4Kb.PageMapLevel4Offset;
-  VirtualPageEnd.Address                       = MAX_UINT64;
-  VirtualPageEnd.Page4Kb.PageMapLevel4Offset   = VirtualPage.Page4Kb.PageMapLevel4Offset;
 
   VA_FIX_SIGN_EXTEND (VirtualPageStart);
+
+  VirtualPageEnd.Address                     = MAX_UINT64;
+  VirtualPageEnd.Page4Kb.PageMapLevel4Offset = VirtualPage.Page4Kb.PageMapLevel4Offset;
+
   VA_FIX_SIGN_EXTEND (VirtualPageEnd);
   
   if (!PageTable->Bits.Present == 1) {
     PageDirectoryPointerEntry                           = (((PAGE_MAP_AND_DIRECTORY_PTR *)APPLY_MASK (PageTable->PackedValue, PAGE_TABLE_ADDRESS_MASK_4KB)) + VirtualPage.Page4Kb.PageDirectoryPointerOffset);
+    
     VirtualPageStart.Page4Kb.PageDirectoryPointerOffset = VirtualPage.Page4Kb.PageDirectoryPointerOffset;
     VirtualPageEnd.Page4Kb.PageDirectoryPointerOffset   = VirtualPage.Page4Kb.PageDirectoryPointerOffset;
 
@@ -101,7 +117,8 @@ GetPhysicalAddress (
         PageTableEntry.Entry1Gb = (PAGE_TABLE_1GB_ENTRY *)PageDirectoryPointerEntry;
         Start                   = APPLY_MASK (PageTableEntry.Entry1Gb->PackedValue, PAGE_TABLE_ADDRESS_MASK_1GB);
         *PhysicalAddress        = (Start + VirtualPage.Page1Gb.PhysicalPageOffset);
-        Status                  = EFI_SUCCESS;
+
+        Status = EFI_SUCCESS;
       } else {
         PageDirectoryEntry                           = (((PAGE_MAP_AND_DIRECTORY_PTR *)APPLY_MASK (PageDirectoryPointerEntry->PackedValue, PAGE_TABLE_ADDRESS_MASK_4KB)) + VirtualPage.Page4Kb.PageDirectoryOffset);
         VirtualPageStart.Page4Kb.PageDirectoryOffset = VirtualPage.Page4Kb.PageDirectoryOffset;
@@ -110,9 +127,14 @@ GetPhysicalAddress (
         if (PageDirectoryEntry->Bits.Present == 1) {
           if (BIT_SET (PageDirectoryEntry->Bits.Fixed0, BIT (1))) {
             PageTableEntry.Entry2Mb = (PAGE_TABLE_2MB_ENTRY *)PageDirectoryEntry;
-            Start                   = APPLY_MASK (PageTableEntry.Entry2Mb->PackedValue, PAGE_TABLE_ADDRESS_MASK_2MB);
+            Start                   = APPLY_MASK (
+                                        PageTableEntry.Entry2Mb->PackedValue,
+                                        PAGE_TABLE_ADDRESS_MASK_2MB
+                                        );
+
             *PhysicalAddress        = (Start + VirtualPage.Page2Mb.PhysicalPageOffset);
-            Status                  = EFI_SUCCESS;
+
+            Status = EFI_SUCCESS;
           } else {
             // PageTableEntry
             PageTableEntry.Entry4Kb                  = (((PAGE_TABLE_4KB_ENTRY *)APPLY_MASK (PageDirectoryEntry->PackedValue, PAGE_TABLE_ADDRESS_MASK_4KB)) + VirtualPage.Page4Kb.PageTableOffset);
@@ -120,9 +142,14 @@ GetPhysicalAddress (
             VirtualPageEnd.Page4Kb.PageTableOffset   = VirtualPage.Page4Kb.PageTableOffset;
 
             if (PageTableEntry.Entry4Kb->Bits.Present == 1) {
-              Start            = APPLY_MASK (PageTableEntry.Entry4Kb->PackedValue, PAGE_TABLE_ADDRESS_MASK_4KB);
+              Start            = APPLY_MASK (
+                                   PageTableEntry.Entry4Kb->PackedValue,
+                                   PAGE_TABLE_ADDRESS_MASK_4KB
+                                   );
+
               *PhysicalAddress = (Start + VirtualPage.Page4Kb.PhysicalPageOffset);
-              Status           = EFI_SUCCESS;
+
+              Status = EFI_SUCCESS;
             }
           }
         }
@@ -136,7 +163,6 @@ GetPhysicalAddress (
 // VmAllocateMemoryPool
 /// Inits vm memory pool. Should be called while boot services are still usable.
 EFI_STATUS
-EFIAPI
 VmAllocateMemoryPool (
   VOID
   )
@@ -148,8 +174,8 @@ VmAllocateMemoryPool (
   Status = EFI_SUCCESS;
 
   if (mVmMemoryPool == NULL) {
-    mVmMemoryPoolFreePages = EFI_SIZE_TO_PAGES (VM_MEMORY_POOL_SIZE); // 2 MB should be enough
-    Address                = (MAX_UINT32 + 1); // max address
+    mVmMemoryPoolFreePages = EFI_SIZE_TO_PAGES (VM_MEMORY_POOL_SIZE);
+    Address                = BASE_4GB;
     Status                 = AllocatePagesFromTop (EfiBootServicesData, mVmMemoryPoolFreePages, &Address);
 
     if (!EFI_ERROR (Status)) {
@@ -171,10 +197,10 @@ VmAllocatePages (
 
   AllocatedPages = NULL;
 
-  if (mVmMemoryPoolFreePages >= (INTN)NoPages) {
+  if (mVmMemoryPoolFreePages >= NoPages) {
     AllocatedPages          = mVmMemoryPool;
     mVmMemoryPool           = (VOID *)((UINTN)mVmMemoryPool + EFI_PAGES_TO_SIZE (NoPages));
-    mVmMemoryPoolFreePages -= (INTN)NoPages;
+    mVmMemoryPoolFreePages -= NoPages;
   }
 
   return AllocatedPages;
@@ -216,14 +242,16 @@ VmMapVirtualPage (
 
   VirtualPageStart.Address                     = 0;
   VirtualPageStart.Page4Kb.PageMapLevel4Offset = VirtualPage.Page4Kb.PageMapLevel4Offset;
-  VirtualPageEnd.Address                       = MAX_UINT64;
-  VirtualPageEnd.Page4Kb.PageMapLevel4Offset   = VirtualPage.Page4Kb.PageMapLevel4Offset;
 
   VA_FIX_SIGN_EXTEND (VirtualPageStart);
+
+  VirtualPageEnd.Address                     = MAX_UINT64;
+  VirtualPageEnd.Page4Kb.PageMapLevel4Offset = VirtualPage.Page4Kb.PageMapLevel4Offset;
+
   VA_FIX_SIGN_EXTEND (VirtualPageEnd);
 
   if (PageMapLevel4->Bits.Present == 0) {
-    PageDirectoryPointerEntry = (PAGE_MAP_AND_DIRECTORY_PTR *)VmAllocatePages (1);
+    PageDirectoryPointerEntry = VmAllocatePages (1);
 
     if (PageDirectoryPointerEntry == NULL) {
       goto Return;
@@ -239,7 +267,9 @@ VmMapVirtualPage (
       PageTableEntry.Entry1Gb->Bits.ReadWrite = 1;
       PageTableEntry.Entry1Gb->Bits.Present   = 1;
       PageTableEntry.Entry1Gb->Bits.Fixed1    = 1;
-      Start                                  += SIZE_1GB;
+
+      Start += SIZE_1GB;
+
       ++PageTableEntry.Entry1Gb;
     }
 
@@ -249,12 +279,18 @@ VmMapVirtualPage (
     // and continue with mapping ...
   }
 
-  PageDirectoryPointerEntry                           = (((PAGE_MAP_AND_DIRECTORY_PTR *)APPLY_MASK (PageMapLevel4->PackedValue, PAGE_TABLE_ADDRESS_MASK_4KB)) + VirtualPage.Page4Kb.PageDirectoryPointerOffset);
+  PageDirectoryPointerEntry = (((PAGE_MAP_AND_DIRECTORY_PTR *)APPLY_MASK (
+                                                                PageMapLevel4->PackedValue,
+                                                                PAGE_TABLE_ADDRESS_MASK_4KB
+                                                                ))
+                                + VirtualPage.Page4Kb.PageDirectoryPointerOffset);
+  
   VirtualPageStart.Page4Kb.PageDirectoryPointerOffset = VirtualPage.Page4Kb.PageDirectoryPointerOffset;
   VirtualPageEnd.Page4Kb.PageDirectoryPointerOffset   = VirtualPage.Page4Kb.PageDirectoryPointerOffset;
 
-  if ((PageDirectoryPointerEntry->Bits.Present == 0) || BIT_SET (PageDirectoryPointerEntry->Bits.Fixed0, BIT (1))) {
-    PageDirectoryEntry = (PAGE_MAP_AND_DIRECTORY_PTR *)VmAllocatePages (1);
+  if ((PageDirectoryPointerEntry->Bits.Present == 0)
+   || BIT_SET (PageDirectoryPointerEntry->Bits.Fixed0, BIT1)) {
+    PageDirectoryEntry = VmAllocatePages (1);
 
     if (PageDirectoryEntry == NULL) {
       goto Return;
@@ -287,7 +323,7 @@ VmMapVirtualPage (
   VirtualPageEnd.Page4Kb.PageDirectoryOffset   = VirtualPage.Page4Kb.PageDirectoryOffset;
 
   if ((PageDirectoryEntry->Bits.Present == 0) || BIT_SET (PageDirectoryEntry->Bits.Fixed0, BIT (1))) {
-    PageTableEntry.Entry4Kb = (PAGE_TABLE_4KB_ENTRY *)VmAllocatePages (1);
+    PageTableEntry.Entry4Kb = VmAllocatePages (1);
 
     if (PageTableEntry.Entry4Kb == NULL) {
       goto Return;
@@ -305,6 +341,7 @@ VmMapVirtualPage (
         PageTable4KbEntry2->Bits.ReadWrite = 1;
         PageTable4KbEntry2->Bits.Present   = 1;
         Start                             += SIZE_4KB;
+
         ++PageTable4KbEntry2;
       }
     }
@@ -315,13 +352,16 @@ VmMapVirtualPage (
     // and continue with mapping ...
   }
 
-  PageTableEntry.Entry4Kb                  = (((PAGE_TABLE_4KB_ENTRY *)APPLY_MASK (PageDirectoryEntry->PackedValue, PAGE_TABLE_ADDRESS_MASK_4KB)) + VirtualPage.Page4Kb.PageTableOffset);
+  PageTableEntry.Entry4Kb = (((PAGE_TABLE_4KB_ENTRY *)APPLY_MASK (PageDirectoryEntry->PackedValue, PAGE_TABLE_ADDRESS_MASK_4KB)) + VirtualPage.Page4Kb.PageTableOffset);
+  
   VirtualPageStart.Page4Kb.PageTableOffset = VirtualPage.Page4Kb.PageTableOffset;
   VirtualPageEnd.Page4Kb.PageTableOffset   = VirtualPage.Page4Kb.PageTableOffset;
-  PageTableEntry.Entry4Kb->PackedValue     = APPLY_MASK (PhysicalAddress, PAGE_TABLE_ADDRESS_MASK_4KB);
-  PageTableEntry.Entry4Kb->Bits.ReadWrite  = 1;
-  PageTableEntry.Entry4Kb->Bits.Present    = 1;
-  Status                                   = EFI_SUCCESS;
+
+  PageTableEntry.Entry4Kb->PackedValue    = APPLY_MASK (PhysicalAddress, PAGE_TABLE_ADDRESS_MASK_4KB);
+  PageTableEntry.Entry4Kb->Bits.ReadWrite = 1;
+  PageTableEntry.Entry4Kb->Bits.Present   = 1;
+
+  Status = EFI_SUCCESS;
 
  Return:
   return Status;
@@ -342,9 +382,11 @@ VmMapVirtualPages (
   Status = EFI_SUCCESS;
 
   while ((NoPages > 0) && !EFI_ERROR (Status)) {
-    Status           = VmMapVirtualPage (PageTable, VirtualAddress, PhysicalAddress);
+    Status = VmMapVirtualPage (PageTable, VirtualAddress, PhysicalAddress);
+
     VirtualAddress  += EFI_PAGE_SIZE;
     PhysicalAddress += EFI_PAGE_SIZE;
+
     --NoPages;
   }
 

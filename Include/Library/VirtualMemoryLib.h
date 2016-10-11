@@ -8,7 +8,7 @@
     4) AMD64 Architecture Programmer's Manual Volume 2: System Programming
 
   Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.
-  Copyright (C) 2012 Damir Mazar.  All rights reserved.
+  Copyright (C) 2012 Damir Mažar.  All rights reserved.
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -24,8 +24,8 @@
 // SYS_CODE64_SEL
 #define SYS_CODE64_SEL  0x38
 
-#define VA_FIX_SIGN_EXTEND(VA) \
-  (VA).Page4Kb.SignExtend = (BIT_SET ((VA).Page4Kb.PageMapLevel4Offset, BIT (8)) ? MAX_UINT16 : 0);
+#define VA_FIX_SIGN_EXTEND(VA)  \
+  (VA).Page4Kb.SignExtend = (BIT_SET ((VA).Page4Kb.PageMapLevel4Offset, BIT8) ? MAX_UINT16 : 0);
 
 // 64 bit
 #define CR3_ADDRESS_MASK  0x000FFFFFFFFFF000
@@ -165,10 +165,10 @@ typedef PACKED union {
 
 // GetCurrentPageTable
 /// Returns pointer to PML4 table in PageTable and PWT and PCD flags in Flags.
-VOID
+// GetCurrentPageTable
+PAGE_MAP_AND_DIRECTORY_PTR *
 GetCurrentPageTable (
-  OUT PAGE_MAP_AND_DIRECTORY_PTR  **PageTable,
-  OUT UINTN                       *Flags
+  OUT UINTN  *Flags OPTIONAL
   );
 
 // GetPhysicalAddress
@@ -177,7 +177,8 @@ EFI_STATUS
 GetPhysicalAddress (
   IN  PAGE_MAP_AND_DIRECTORY_PTR  *PageTable,
   IN  EFI_VIRTUAL_ADDRESS         VirtualAddress,
-  OUT EFI_PHYSICAL_ADDRESS        *PhysicalAddress);
+  OUT EFI_PHYSICAL_ADDRESS        *PhysicalAddress
+  );
 
 // VmAllocateMemoryPool
 /// Inits vm memory pool. Should be called while boot services are still usable.
