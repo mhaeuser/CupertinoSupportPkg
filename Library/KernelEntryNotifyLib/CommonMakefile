@@ -1,0 +1,56 @@
+## file
+#
+#  Copyright (C) 2017, CupertinoNet.  All rights reserved.<BR>
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+#
+##
+
+# As the XNU Kernel entry point is always IA32, only and always compile it.
+ARCH		= IA32
+
+INPUT_NAME	= $(MODULE_NAME)Image
+INPUT_DIR	= $(BUILD_DIR)$(SEP)$(ARCH)$(SEP)$(MODULE_RELATIVE_DIR)$(SEP)$(INPUT_NAME)$(SEP)OUTPUT
+INPUT_FILE	= $(INPUT_DIR)$(SEP)$(INPUT_NAME)
+OUTPUT_FILE	= $(MODULE_DIR)$(SEP)$(MODULE_NAME).c
+BUILD_INPUT	= build -a $(ARCH) -b $(TARGET) -t $(TOOLCHAIN) -p $(PLATFORM_RELATIVE_DIR)$(SEP)$(PLATFORM_RELATIVE_DIR).dsc -m $(MODULE_RELATIVE_DIR)$(SEP)$(INPUT_NAME).inf
+
+all:
+	$(BUILD_INPUT)
+
+	@$(MV) $(INPUT_FILE).efi $(INPUT_FILE)
+
+	@echo // DO NOT EDIT								>  $(OUTPUT_FILE)
+	@echo // This file is auto-generated				>> $(OUTPUT_FILE)
+	@echo GLOBAL_REMOVE_IF_UNREFERENCED					>> $(OUTPUT_FILE)
+	@cd $(INPUT_DIR) $(COMBINE) xxd -i $(INPUT_NAME)	>> $(OUTPUT_FILE)
+
+	@$(MV) $(INPUT_FILE) $(INPUT_FILE).efi
+	
+clean:
+	@if exist $(OUTPUT_DIR) $(RD) $(OUTPUT_DIR)
+	@echo // DO NOT EDIT					>  $(OUTPUT_FILE)
+	@echo // This file is auto-generated	>> $(OUTPUT_FILE)
+
+cleanall:
+	@if exist $(DEBUG_DIR) $(RD) $(DEBUG_DIR)
+	@if exist $(OUTPUT_DIR) $(RD) $(OUTPUT_DIR)
+	@$(RM) *.pdb *.idb > NUL 2>&1
+	@$(RM) $(OUTPUT_FILE)
+	$(BUILD_INPUT) cleanall
+	@echo // DO NOT EDIT					>  $(OUTPUT_FILE)
+	@echo // This file is auto-generated	>> $(OUTPUT_FILE)
+
+cleanlib:
+	$(BUILD_INPUT) cleanall

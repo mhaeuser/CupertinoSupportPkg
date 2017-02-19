@@ -1,0 +1,50 @@
+## @file
+# Copyright (C) 2017, CupertinoNet.  All rights reserved.<BR>
+# Portions Copyright (C) 2012 - 2014, Damir Mažar.  All rights reserved.<BR>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+##
+
+[Defines]
+  BASE_NAME     = KernelEntryHookLib
+  LIBRARY_CLASS = KernelEntryHookLib
+  MODULE_TYPE   = BASE
+  INF_VERSION   = 0x00010005
+
+[Packages]
+  MdePkg/MdePkg.dec
+  EfiMiscPkg/EfiMiscPkg.dec
+  AppleDarwinPkg/CupertinoDarwinPkg.dec
+  CupertinoSupportPkg/CupertinoSupportPkg.dec
+
+[LibraryClasses]
+  AppleMachoLib
+  BaseMemoryLib
+  CacheMaintenanceLib
+  CupertinoXnuLib
+  KernelEntryNotifyLib
+  KernelEntryHookMemoryAllocationLib
+  KernelEntryNotifyImageLib
+
+[Sources.Common]
+  KernelEntryHookInternal.h
+  KernelEntryHook32.nasm
+  KernelEntryHookLib.c
+
+[Sources.Ia32]
+  Ia32/PrepareKernelEntryHook32.nasm
+
+[Sources.X64]
+  X64/PrepareKernelEntryHook32.nasm
