@@ -42,7 +42,7 @@ KernelEntryHook (
   UINTN                     MemorySize;
   VOID                      *Memory;
   KERNEL_ENTRY_HOOK_CONTEXT *Context;
-  UINT32                    HandlerEntry;
+  VOID                      *HandlerEntry;
 
   ASSERT (KernelEntryAddress != 0);
   ASSERT (KERNEL_ENTRY_HOOK_32_SIZE > 0);
@@ -52,54 +52,50 @@ KernelEntryHook (
                   gKernelEntryNotifyImageData
                   );
 
-  ASSERT (NotifyEntry <= XNU_MAX_PHYSICAL_ADDRESS);
-
   if (NotifyEntry != 0) {
-    MemorySize = (sizeof (*Context)
-                    + KERNEL_ENTRY_HOOK_32_SIZE
-                    + KERNEL_ENTRY_HANDLER_32_SIZE);
+    MemorySize = (sizeof (*Context) + KERNEL_ENTRY_HOOK_32_SIZE);
 
     Memory = AllocateKernelHookData (MemorySize);
 
-    ASSERT (((UINTN)Memory + MemorySize) <= XNU_MAX_PHYSICAL_ADDRESS);
+    if (Memory != NULL) {
+      HandlerEntry = AllocateKernelHookCode (KERNEL_ENTRY_HANDLER_32_SIZE);
 
-    if (Memory != 0) {
-      Context                      = (KERNEL_ENTRY_HOOK_CONTEXT *)Memory;
-      Context->Hdr.Signature       = KERNEL_ENTRY_HOOK_CONTEXT_SIGNATURE;
-      Context->Hdr.KernelEntry     = (UINT32)KernelEntryAddress;
-      Context->Hdr.KernelEntrySize = (UINT32)KERNEL_ENTRY_HOOK_32_SIZE;
+      if (HandlerEntry != NULL) {
+        Context                      = (KERNEL_ENTRY_HOOK_CONTEXT *)Memory;
+        Context->Hdr.Signature       = KERNEL_ENTRY_HOOK_CONTEXT_SIGNATURE;
+        Context->Hdr.KernelEntry     = (UINT32)KernelEntryAddress;
+        Context->Hdr.KernelEntrySize = (UINT32)KERNEL_ENTRY_HOOK_32_SIZE;
 
-      HandlerEntry = ((UINT32)(UINTN)(Context + 1) + Context->Hdr.KernelEntrySize);
+        PrepareKernelEntryHook32 (
+          Context->Hdr.KernelEntry,
+          (UINT32)(UINTN)HandlerEntry,
+          (UINT32)NotifyEntry,
+          (UINT32)(UINTN)Context
+          );
 
-      PrepareKernelEntryHook32 (
-        Context->Hdr.KernelEntry,
-        HandlerEntry,
-        (UINT32)NotifyEntry,
-        (UINT32)(UINTN)Context
-        );
+        CopyMem (
+          (VOID *)&Context->KernelEntryBackup[0],
+          (VOID *)(UINTN)Context->Hdr.KernelEntry,
+          (UINTN)Context->Hdr.KernelEntrySize
+          );
 
-      CopyMem (
-        (VOID *)&Context->KernelEntryBackup[0],
-        (VOID *)(UINTN)Context->Hdr.KernelEntry,
-        (UINTN)Context->Hdr.KernelEntrySize
-        );
-
-      CopyMem (
-        (VOID *)(UINTN)Context->Hdr.KernelEntry,
-        (VOID *)(UINTN)KernelEntryHook32,
-        (UINTN)Context->Hdr.KernelEntrySize
-        );
+        CopyMem (
+          (VOID *)(UINTN)Context->Hdr.KernelEntry,
+          (VOID *)(UINTN)KernelEntryHook32,
+          (UINTN)Context->Hdr.KernelEntrySize
+          );
   
-      CopyMem (
-        (VOID *)(UINTN)HandlerEntry,
-        (VOID *)(UINTN)KernelEntryHandler32,
-        KERNEL_ENTRY_HANDLER_32_SIZE
-        );
-    } else {
-      FreeKernelHookMemory (
-        Memory,
-        MemorySize
-        );
+        CopyMem (
+          HandlerEntry,
+          (VOID *)(UINTN)KernelEntryHandler32,
+          KERNEL_ENTRY_HANDLER_32_SIZE
+          );
+      } else {
+        FreeKernelHookMemory (
+          Memory,
+          MemorySize
+          );
+      }
     }
   }
 }
