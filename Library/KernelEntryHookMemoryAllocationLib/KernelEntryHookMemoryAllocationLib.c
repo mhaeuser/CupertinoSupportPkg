@@ -41,6 +41,7 @@ InternalAllocateKernelHookMemory (
              );
 
   ASSERT (Memory != NULL);
+  ASSERT (((UINTN)Memory + Size) <= XNU_MAX_PHYSICAL_ADDRESS);
 
   return Memory;
 }

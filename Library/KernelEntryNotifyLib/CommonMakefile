@@ -33,6 +33,7 @@ all:
 
 	@echo // DO NOT EDIT								>  $(OUTPUT_FILE)
 	@echo // This file is auto-generated				>> $(OUTPUT_FILE)
+	@echo #include <Base.h>								>> $(OUTPUT_FILE)
 	@echo GLOBAL_REMOVE_IF_UNREFERENCED					>> $(OUTPUT_FILE)
 	@cd $(INPUT_DIR) $(COMBINE) xxd -i $(INPUT_NAME)	>> $(OUTPUT_FILE)
 
