@@ -1,0 +1,54 @@
+## file
+#
+#  Copyright (C) 2017, CupertinoNet.  All rights reserved.<BR>
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+#
+##
+
+all: gen_lib
+
+gen_image:
+	@$(BUILD_IMAGE)
+
+gen_c_write_header_comments:
+	@echo // DO NOT EDIT					>  $(DATA_FILE_PATH)
+	@echo // This file is auto-generated	>> $(DATA_FILE_PATH)
+
+gen_c: gen_image gen_c_write_header
+	@echo GLOBAL_REMOVE_IF_UNREFERENCED					>> $(DATA_FILE_PATH)
+
+	@$(MV) $(IMAGE_BINARY).efi $(IMAGE_BINARY)
+	@cd $(IMAGE_DIR) $(COMBINE) xxd -i $(IMAGE_NAME)	>> $(DATA_FILE_PATH)
+	@$(MV) $(IMAGE_BINARY) $(IMAGE_BINARY).efi
+
+gen_lib: gen_c
+	@$(BUILD_LIB)
+
+	@$(CP) $(LIB_OUTPUT_DIR)$(SEP)$(DATA_FILE_NAME).obj $(PRIVATE_DATA_LIB)
+	@$(CP) $(LIB_OUTPUT_DIR)$(SEP)$(DATA_FILE_NAME).lib $(PRIVATE_DATA_OBJ)
+	@echo $(PRIVATE_DATA_OBJ)	> $(PRIVATE_DATA_OBJFILES)
+
+cleanlib:
+	@$(BUILD_IMAGE) clean
+	@$(BUILD_LIB) clean
+	
+clean:
+	$(RMOUTPUT)
+	@echo // DO NOT EDIT					>  $(DATA_FILE_PATH)
+	@echo // This file is auto-generated	>> $(DATA_FILE_PATH)
+
+cleanall: cleanlib clean
+	$(RMDEBUG)
+	$(RM) *.pdb *.idb > NUL 2>&1

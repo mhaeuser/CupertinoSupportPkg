@@ -17,20 +17,14 @@
 #
 ##
 
-PRIVATE_PREFIX	= $(MODULE_RELATIVE_DIR)$(SEP)LibGen$(SEP)$(MODULE_NAME)
-PRIVATE_LIB		= $(PRIVATE_PREFIX).inf
-PRIVATE_DSC		= $(PRIVATE_PREFIX)Gen.dsc
-BUILD_LIB		= build -a $(ARCH) -b $(TARGET) -t $(TOOLCHAIN) -p $(PRIVATE_DSC) -m $(PRIVATE_LIB)
+SEP			= ^\
+COMBINE		= &
+RMDEBUG		= if exist $(DEBUG_DIR) $(RD) $(DEBUG_DIR)
+RMOUTPUT	= if exist $(OUTPUT_DIR) $(RD) $(OUTPUT_DIR)
 
-all: set_vars
-	@$(BUILD_LIB)
+!INCLUDE $(MODULE_DIR)\CommonMakefileVars
 
-cleanlib:
-	@$(BUILD_LIB) clean
-	
-clean:
-	$(RMOUTPUT)
+gen_c_write_header: gen_c_write_header_comments
+	@echo #include ^<Base.h^>	>> $(DATA_FILE_PATH)
 
-cleanall: cleanlib clean
-	$(RMDEBUG)
-	$(RM) *.pdb *.idb > NUL 2>&1
+!INCLUDE $(MODULE_DIR)\CommonMakefile

@@ -17,7 +17,16 @@
 #
 ##
 
-SEP     = ^\
-COMBINE = &
+SEP			= ^\
+COMBINE		= &
+RMDEBUG		= if exist $(DEBUG_DIR) $(RD) $(DEBUG_DIR)
+RMOUTPUT	= if exist $(OUTPUT_DIR) $(RD) $(OUTPUT_DIR)
+
+!INCLUDE $(MODULE_DIR)/CommonMakefileVars
+
+set_vars:
+	@set PRIVATE_DATA_OBJ=$(PRIVATE_DATA_OBJ)
+	@set PRIVATE_DATA_LIB=$(PRIVATE_DATA_LIB)
+	@set PRIVATE_DATA_OBJFILES=$(PRIVATE_DATA_OBJFILES)
 
 !INCLUDE $(MODULE_DIR)\CommonMakefile

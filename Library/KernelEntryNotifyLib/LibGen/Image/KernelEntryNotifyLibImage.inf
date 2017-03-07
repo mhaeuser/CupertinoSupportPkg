@@ -17,13 +17,20 @@
 ##
 
 [Defines]
-  BASE_NAME     = KernelEntryNotifyLibData
-  LIBRARY_CLASS = KernelEntryNotifyLibData
-  MODULE_TYPE   = BASE
-  INF_VERSION   = 0x00010005
+  BASE_NAME           = KernelEntryNotifyLibImage
+  MODULE_TYPE         = UEFI_DRIVER
+  VALID_ARCHITECTURES = IA32
+  INF_VERSION         = 0x00010005
 
 [Packages]
   MdePkg/MdePkg.dec
+  AppleDarwinPkg/CupertinoDarwinPkg.dec
+  CupertinoSupportPkg/CupertinoSupportPkg.dec
+  AppleXnuPkg/AppleXnuPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  DebugLib
 
 [Sources]
-  KernelEntryNotifyLib.c
+  KernelEntryNotifyImage.c

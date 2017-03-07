@@ -17,7 +17,18 @@
 #
 ##
 
-SEP     = /
-COMBINE = ;
+SEP			= /
+COMBINE		= ;
+RMDEBUG		= $(RD) $(DEBUG_DIR)
+RMOUTPUT	= $(RD) $(OUTPUT_DIR)
+
+include $(MODULE_DIR)/CommonMakefileVars
+
+export PRIVATE_DATA_OBJ
+export PRIVATE_DATA_LIB
+export PRIVATE_DATA_OBJFILES
+
+set_vars:
+	
 
 include $(MODULE_DIR)/CommonMakefile
