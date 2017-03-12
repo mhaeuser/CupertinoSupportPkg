@@ -88,6 +88,7 @@ ASM_PFX (gKernelEntryHook32End):
 ASM_PFX (KernelEntryHandler32):
     ;
     ; Assertion: cs is on the top of the stack.
+    ; NOTE: This function does not save or change MMX registers.
     ;
 
     ; Push the kernel entry point address to stack so retf will jump there,
@@ -111,6 +112,8 @@ ASM_PFX (KernelEntryHandler32):
     push    fs                  ; 4 bytes
     push    gs                  ; 4 bytes
     pushad                      ; 8 * 4 bytes
+    mov     eax, cr0
+    push    eax
     ; Total size: 52 bytes
 
     ; Rebase the return address to the caller cs.
@@ -121,13 +124,20 @@ ASM_PFX (KernelEntryHandler32):
     shl     ebx, 4              ; Multiply with 16; Selectors move in 16-byte steps.
     sub     [ss:esp + 52], ebx  ; Subtract the selector start from the flat address.
 .ASM_PFX (CallerCsIsFlat):
-
     ; Save the caller stack.
     mov     edi, esp
+
+    sub     esp, 02h
+    fstcw   word [esp]
+    mov     word [esp + 2], 027Fh
+    fldcw   word [esp + 2]
 
     ;
     ; Prepare compliance with the UEFI IA-32 calling convention.
     ;
+
+    cld
+    clts
 
     ALIGN_VALUE esp, STACK_ALIGN
 
@@ -176,7 +186,12 @@ ASM_PFX (KernelEntryHandler32):
     ; Restore the caller stack.
     mov     esp, edi
 
+    ; Subtract 2 as esp has been restored to the value before the allocation.
+    fldcw   word [esp - 2]
+
     ; Restore the original registers.  This ensures a seamless transition.
+    pop     eax
+    mov     cr0, eax
     popad
     pop     gs
     pop     fs
