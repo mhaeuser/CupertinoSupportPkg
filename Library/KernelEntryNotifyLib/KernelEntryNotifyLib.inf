@@ -27,5 +27,11 @@
 [Packages]
   MdePkg/MdePkg.dec
 
-[Sources]
-  LibGen/Data/KernelEntryNotifyLibData.c
+[Sources.common.RELEASE]
+  LibGen/Data/RELEASE/KernelEntryNotifyLibData.c
+
+[Sources.common.DEBUG]
+  LibGen/Data/DEBUG/KernelEntryNotifyLibData.c
+
+[Sources.common.NOOPT]
+  LibGen/Data/NOOPT/KernelEntryNotifyLibData.c
