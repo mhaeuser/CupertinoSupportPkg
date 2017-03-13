@@ -44,10 +44,8 @@ cleanlib:
 	@$(BUILD_IMAGE) clean
 	@$(BUILD_LIB) clean
 	
-clean:
+clean: gen_c_write_header_comments
 	$(RMOUTPUT)
-	@echo // DO NOT EDIT					>  $(DATA_FILE_PATH)
-	@echo // This file is auto-generated	>> $(DATA_FILE_PATH)
 
 cleanall: cleanlib clean
 	$(RMDEBUG)

@@ -17,13 +17,17 @@
 #
 ##
 
-PRIVATE_PREFIX	= $(MODULE_RELATIVE_DIR)$(SEP)LibGen$(SEP)$(MODULE_NAME)
-PRIVATE_LIB		= $(PRIVATE_PREFIX).inf
-PRIVATE_DSC		= $(PRIVATE_PREFIX)Gen.dsc
-BUILD_LIB		= build -a $(ARCH) -b $(TARGET) -t $(TOOLCHAIN) -p $(PRIVATE_DSC) -m $(PRIVATE_LIB)
+LIB_GEN_PREFIX		= $(LIB_GEN_PATH)$(MODULE_NAME)Gen
+LIB_GEN_LIB			= $(LIB_GEN_PREFIX).inf
+LIB_GEN_DSC			= $(LIB_GEN_PREFIX).dsc
+BUILD_LIB			= build -a $(ARCH) -b $(TARGET) -t $(TOOLCHAIN) -p $(LIB_GEN_DSC) -m $(LIB_GEN_LIB)
 
-all: set_vars
-	@$(BUILD_LIB)
+set_up_lib_gen: set_vars
+	$(RMLIBGEN)
+	$(CPD) "$(MODULE_DIR)$(SEP)$(LIB_GEN_REL_PATH)" "$(LIB_GEN_PATH)"
+
+all: set_up_lib_gen
+	$(BUILD_LIB_PREFIX) $(BUILD_LIB)
 
 cleanlib:
 	@$(BUILD_LIB) clean

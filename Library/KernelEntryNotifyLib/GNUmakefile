@@ -19,8 +19,12 @@
 
 SEP			= /
 COMBINE		= ;
+CPD			= $(CP) -r
+RMLIBGEN	= $(RD) $(LIB_GEN_PATH)
 RMDEBUG		= $(RD) $(DEBUG_DIR)
 RMOUTPUT	= $(RD) $(OUTPUT_DIR)
+
+BUILD_LIB_PREFIX	= export PACKAGES_PATH=$(PACKAGES_PATH):$(LIB_GEN_LOCATION);
 
 include $(MODULE_DIR)/CommonMakefileVars
 

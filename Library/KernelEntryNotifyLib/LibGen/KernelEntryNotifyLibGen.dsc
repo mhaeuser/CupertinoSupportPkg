@@ -33,8 +33,8 @@
   PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
 
 [Components]
-  CupertinoSupportPkg/Library/KernelEntryNotifyLib/LibGen/KernelEntryNotifyLib.inf
-  CupertinoSupportPkg/Library/KernelEntryNotifyLib/LibGen/Data/KernelEntryNotifyLibData.inf
+  LibGen/KernelEntryNotifyLibGen.inf
+  LibGen/Data/KernelEntryNotifyLibData.inf
 
 [Components.IA32]
-  CupertinoSupportPkg/Library/KernelEntryNotifyLib/LibGen/Image/KernelEntryNotifyLibImage.inf
+  LibGen/Image/KernelEntryNotifyLibImage.inf
