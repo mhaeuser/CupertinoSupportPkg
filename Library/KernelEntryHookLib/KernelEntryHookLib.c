@@ -17,11 +17,11 @@
 
 #include <Uefi.h>
 
-#include <Library/AppleMachoLib.h>
+#include <XnuHibernate.h>
+
 #include <Library/BaseMemoryLib.h>
 #include <Library/CupertinoXnuLib.h>
 #include <Library/DebugLib.h>
-#include <Library/MiscMemoryLib.h>
 #include <Library/KernelEntryNotifyLib.h>
 #include <Library/KernelEntryHookLib.h>
 #include <Library/KernelEntryHookMemoryAllocationLib.h>
@@ -118,4 +118,18 @@ KernelHookPatchEntry (
   if (KernelEntry != 0) {
     KernelEntryHook (KernelEntry + KernelSlide);
   }
+}
+
+// KernelHookPatchHibernationEntry
+VOID
+KernelHookPatchHibernationEntry (
+  IN IO_HIBERNATE_IMAGE_HEADER  *ImageHeader
+  )
+{
+  ASSERT (ImageHeader != NULL);
+  ASSERT (ImageHeader->Signature == IO_HIBERNATE_HEADER_SIGNATURE);
+
+  KernelEntryHook (
+    IO_HIBERNATE_ENTRY_POINT (ImageHeader)
+    );
 }

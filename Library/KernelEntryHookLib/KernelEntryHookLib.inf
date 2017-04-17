@@ -18,16 +18,18 @@
 ##
 
 [Defines]
-  BASE_NAME     = KernelEntryHookLib
-  LIBRARY_CLASS = KernelEntryHookLib
-  MODULE_TYPE   = BASE
-  INF_VERSION   = 0x00010005
+  BASE_NAME               = KernelEntryHookLib
+  LIBRARY_CLASS           = KernelEntryHookLib
+  MODULE_TYPE             = BASE
+  INF_VERSION             = 0x00010005
+  SUPPORTED_ARCHITECTURES = IA32|X64
 
 [Packages]
   MdePkg/MdePkg.dec
   EfiMiscPkg/EfiMiscPkg.dec
-  AppleDarwinPkg/CupertinoDarwinPkg.dec
+  CupertinoXnuPkg/CupertinoXnuPkg.dec
   CupertinoSupportPkg/CupertinoSupportPkg.dec
+  AppleXnuPkg/AppleXnuPkg.dec
 
 [LibraryClasses]
   AppleMachoLib

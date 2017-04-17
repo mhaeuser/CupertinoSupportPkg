@@ -24,7 +24,7 @@
 
 [Packages]
   MdePkg/MdePkg.dec
-  AppleDarwinPkg/CupertinoDarwinPkg.dec
+  CupertinoXnuPkg/CupertinoXnuPkg.dec
   CupertinoSupportPkg/CupertinoSupportPkg.dec
   AppleXnuPkg/AppleXnuPkg.dec
 
@@ -33,4 +33,4 @@
   DebugLib
 
 [Sources]
-  KernelEntryNotifyImage.c
+  KernelEntryNotifyLibImage.c

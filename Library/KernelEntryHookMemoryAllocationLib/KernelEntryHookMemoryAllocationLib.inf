@@ -25,7 +25,7 @@
 [Packages]
   MdePkg/MdePkg.dec
   EfiMiscPkg/EfiMiscPkg.dec
-  AppleDarwinPkg/CupertinoDarwinPkg.dec
+  CupertinoXnuPkg/CupertinoXnuPkg.dec
 
 [LibraryClasses]
   DebugLib

@@ -8,7 +8,9 @@
     4) AMD64 Architecture Programmer's Manual Volume 2: System Programming
 
   Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.
-  Copyright (C) 2012 Damir Mažar.  All rights reserved.
+  Copyright (C) 2012, Damir Mažar.  All rights reserved.
+  Portions Copyright (C) 2015 - 2017, CupertinoNet.  All rights reserved.
+
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -39,10 +41,8 @@
 #pragma pack (1)
 
 // PAGE_MAP_AND_DIRECTORY_PTR
-/// Page-Map Level-4 Offset (PML4) and
-/// Page-Directory-Pointer Offset (PDPE) entries 4K & 2MB
-typedef PACKED union {
-  PACKED struct {
+typedef PACKED volatile union {
+  PACKED volatile struct {
     UINT64 Present              : 1;   ///< 0 = Not present in memory, 1 = Present in memory
     UINT64 ReadWrite            : 1;   ///< 0 = Read-Only, 1= Read/Write
     UINT64 UserSupervisor       : 1;   ///< 0 = Supervisor, 1=User
@@ -57,12 +57,11 @@ typedef PACKED union {
     UINT64 NoExecute            : 1;   ///< No Execute bit
   }      Bits;
   UINT64 PackedValue;
-} volatile PAGE_MAP_AND_DIRECTORY_PTR;
+} PAGE_MAP_AND_DIRECTORY_PTR;
 
 // PAGE_TABLE_4KB_ENTRY
-/// Page Table Entry 4KB
-typedef PACKED union {
-  PACKED struct {
+typedef PACKED volatile union {
+  PACKED volatile struct {
     UINT64 Present              : 1;   ///< 0 = Not present in memory, 1 = Present in memory
     UINT64 ReadWrite            : 1;   ///< 0 = Read-Only, 1= Read/Write
     UINT64 UserSupervisor       : 1;   ///< 0 = Supervisor, 1=User
@@ -78,12 +77,11 @@ typedef PACKED union {
     UINT64 NoExecute            : 1;   ///< 0 = Execute Code, 1 = No Code Execution
   }      Bits;
   UINT64 PackedValue;
-} volatile PAGE_TABLE_4KB_ENTRY;
+} PAGE_TABLE_4KB_ENTRY;
 
 // PAGE_TABLE_2MB_ENTRY
-/// Page Table Entry 2MB
-typedef PACKED union {
-  PACKED struct {
+typedef PACKED volatile union {
+  PACKED volatile struct {
     UINT64 Present              : 1;   /// 0 = Not present in memory, 1 = Present in memory
     UINT64 ReadWrite            : 1;   /// 0 = Read-Only, 1= Read/Write
     UINT64 UserSupervisor       : 1;   /// 0 = Supervisor, 1=User
@@ -101,12 +99,11 @@ typedef PACKED union {
     UINT64 NoExecute            : 1;   /// 0 = Execute Code, 1 = No Code Execution
   }      Bits;
   UINT64 PackedValue;
-} volatile PAGE_TABLE_2MB_ENTRY;
+} PAGE_TABLE_2MB_ENTRY;
 
 // PAGE_TABLE_1GB_ENTRY
-/// Page Table Entry 1GB
-typedef PACKED union {
-  PACKED struct {
+typedef PACKED volatile union {
+  PACKED volatile struct {
     UINT64 Present              : 1;   /// 0 = Not present in memory, 1 = Present in memory
     UINT64 ReadWrite            : 1;   /// 0 = Read-Only, 1= Read/Write
     UINT64 UserSupervisor       : 1;   /// 0 = Supervisor, 1=User
@@ -124,18 +121,18 @@ typedef PACKED union {
     UINT64 NoExecute            : 1;   /// 0 = Execute Code, 1 = No Code Execution
   }      Bits;
   UINT64 PackedValue;
-} volatile PAGE_TABLE_1GB_ENTRY;
+} PAGE_TABLE_1GB_ENTRY;
 
-// _PAGE_TABLE_ENTRY_PTR
+// PAGE_TABLE_ENTRY_PTR
 typedef PACKED union {
   PAGE_TABLE_4KB_ENTRY *Entry4Kb;
   PAGE_TABLE_2MB_ENTRY *Entry2Mb;
   PAGE_TABLE_1GB_ENTRY *Entry1Gb;
 } PAGE_TABLE_ENTRY_PTR;
 
-// _EFI_VIRTUAL_PAGE
-typedef PACKED union {
-  PACKED struct {
+// EFI_VIRTUAL_PAGE
+typedef PACKED volatile union {
+  PACKED volatile struct {
     UINT64 PhysicalPageOffset         : 12;  /// 0 = Physical Page Offset
     UINT64 PageTableOffset            : 9;   /// 0 = Page Table Offset
     UINT64 PageDirectoryOffset        : 9;   /// 0 = Page Directory Offset
@@ -144,7 +141,7 @@ typedef PACKED union {
     UINT64 SignExtend                 : 16;  /// 0 = Sign Extend
   }                   Page4Kb;
 
-  PACKED struct {
+  PACKED volatile struct {
     UINT64 PhysicalPageOffset         : 21;  /// 0 = Physical Page Offset
     UINT64 PageDirectoryOffset        : 9;   /// 0 = Page Directory Offset
     UINT64 PageDirectoryPointerOffset : 9;   /// 0 = Page Directory Pointer Offset
@@ -152,19 +149,17 @@ typedef PACKED union {
     UINT64 SignExtend                 : 16;  /// 0 = Sign Extend
   }                   Page2Mb;
 
-  PACKED struct {
+  PACKED volatile struct {
     UINT64 PhysicalPageOffset         : 30;  /// 0 = Physical Page Offset
     UINT64 PageDirectoryPointerOffset : 9;   /// 0 = Page Directory Pointer Offset
     UINT64 PageMapLevel4Offset        : 9;   /// 0 = Page Map Level 4 Offset
     UINT64 SignExtend                 : 16;  /// 0 = Sign Extend
   }                   Page1Gb;
   EFI_VIRTUAL_ADDRESS Address;
-} volatile EFI_VIRTUAL_PAGE;
+} EFI_VIRTUAL_PAGE;
 
 #pragma pack ()
 
-// GetCurrentPageTable
-/// Returns pointer to PML4 table in PageTable and PWT and PCD flags in Flags.
 // GetCurrentPageTable
 PAGE_MAP_AND_DIRECTORY_PTR *
 GetCurrentPageTable (
@@ -172,7 +167,6 @@ GetCurrentPageTable (
   );
 
 // GetPhysicalAddress
-/// Returns physical addr for given virtual addr.
 EFI_STATUS
 GetPhysicalAddress (
   IN  PAGE_MAP_AND_DIRECTORY_PTR  *PageTable,
@@ -181,14 +175,12 @@ GetPhysicalAddress (
   );
 
 // VmAllocateMemoryPool
-/// Inits vm memory pool. Should be called while boot services are still usable.
 EFI_STATUS
 VmAllocateMemoryPool (
   VOID
   );
 
 // VmMapVirtualPage
-/// Maps (remaps) 4K page given by VirtualAddr to PhysicalAddr page in PageTable.
 EFI_STATUS
 VmMapVirtualPage (
   IN PAGE_MAP_AND_DIRECTORY_PTR  *PageTable,
@@ -197,12 +189,11 @@ VmMapVirtualPage (
   );
 
 // VmMapVirtualPages
-/// Maps (remaps) NumPages 4K pages given by VirtualAddr to PhysicalAddr pages in PageTable.
 EFI_STATUS
 VmMapVirtualPages (
   IN PAGE_MAP_AND_DIRECTORY_PTR  *PageTable,
   IN EFI_VIRTUAL_ADDRESS         VirtualAddress,
-  IN UINTN                       NoPages,
+  IN UINT64                      NumberOfPages,
   IN EFI_PHYSICAL_ADDRESS        PhysicalAddress
   );
 
