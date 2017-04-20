@@ -1,6 +1,6 @@
 /** @file
-  Copyright (C) 2012 - 2014 Damir Mazar.  All rights reserved.<BR>
-  Portions Copyright (C) 2015 - 2016 CupertinoNet.  All rights reserved.<BR>
+  Copyright (C) 2012 - 2014 Damir Mažar.  All rights reserved.<BR>
+  Portions Copyright (C) 2015 - 2017, CupertinoNet.  All rights reserved.<BR>
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions
@@ -29,50 +29,73 @@
 
 #include <Uefi.h>
 
-#include <AppleHibernate.h>
-
-#include <Guid/AppleNvram.h>
+#include <Guid/XnuPrepareStartNamedEvent.h>
 
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/LoadedImage.h>
 
-#include <Library/BaseLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
-#include <Library/EfiProtocolLib.h>
-#include <Library/EfiVariableLib.h>
+#include <Library/EfiBootServicesLib.h>
+#include <Library/PcdLib.h>
+#include <Library/UefiLib.h>
+#include <Library/VirtualMemoryLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 
-#include "FirmwareFixes.h"
+#include "FirmwareFixesInternal.h"
+#include "Library/MiscRuntimeLib.h"
 
-// mStartImage
-STATIC EFI_IMAGE_START mStartImage = NULL;
+typedef struct {
+  BOOLEAN                     Overwritten; // TODO: Make DEBUG-only.
+  EFI_ALLOCATE_PAGES          AllocatePages;
+  EFI_ALLOCATE_POOL           AllocatePool;
+  EFI_EXIT_BOOT_SERVICES      ExitBootServices;
+  EFI_FREE_PAGES              FreePages;
+  EFI_FREE_POOL               FreePool;
+  EFI_GET_MEMORY_MAP          GetMemoryMap;
+  EFI_HANDLE_PROTOCOL         HandleProtocol;
+  EFI_SET_VIRTUAL_ADDRESS_MAP SetVirtualAddressMap;
+} FIRMWARE_SERVICES_PRIVATE_DATA;
 
-// mAllocatePages
-/// placeholders for storing original Boot and RT Services functions
-STATIC EFI_ALLOCATE_PAGES mAllocatePages = NULL;
+GLOBAL_REMOVE_IF_UNREFERENCED BOOLEAN mXnuPrepareStartSignaledInCurrentBooter = FALSE;
 
-// mGetMemoryMap
-STATIC EFI_GET_MEMORY_MAP mGetMemoryMap = NULL;
+STATIC BOOLEAN mDisableMemoryAllocationServices = FALSE;
 
-// mExitBootServices
-STATIC EFI_EXIT_BOOT_SERVICES mExitBootServices = NULL;
+STATIC FIRMWARE_SERVICES_PRIVATE_DATA mPrivateData = {
+  FALSE,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NULL
+};
 
-// mHandleProtocol
-STATIC EFI_HANDLE_PROTOCOL mHandleProtocol = NULL;
+// HandleProtocolGop
+/** Queries a handle to determine if it supports a specified protocol.
 
-// MoHandleProtocol
-/** gBS->HandleProtocol override:
-    Boot.efi requires EfiGraphicsOutputProtocol on ConOutHandle, but it is not present
-    there on Aptio 2.0 through 4.0. EfiGraphicsOutputProtocol exists on some other handle.
-    If this is the case, we'll intercept that call and return EfiGraphicsOutputProtocol
-    from that other handle.
+  @param[in]  Handle     The handle being queried.
+  @param[in]  Protocol   The published unique identifier of the protocol.
+  @param[out] Interface  Supplies the address where a pointer to the
+                         corresponding Protocol Interface is returned.
+
+  @retval EFI_SUCCESS            The interface information for the specified
+                                 protocol was returned.
+  @retval EFI_UNSUPPORTED        The device does not support the specified
+                                 protocol.
+  @retval EFI_INVALID_PARAMETER  Handle is NULL.
+  @retval EFI_INVALID_PARAMETER  Protocol is NULL.
+  @retval EFI_INVALID_PARAMETER  Interface is NULL.
 **/
-// TODO: ConSplitter
+STATIC
 EFI_STATUS
 EFIAPI
-MoHandleProtocol (
+HandleProtocolGop (
   IN  EFI_HANDLE  Handle,
   IN  EFI_GUID    *Protocol,
   OUT VOID        **Interface
@@ -80,26 +103,285 @@ MoHandleProtocol (
 {
   EFI_STATUS Status;
 
-  Status = mHandleProtocol (Handle, Protocol, Interface);
+  ASSERT (Handle != NULL);
+  ASSERT (Protocol != NULL);
+  ASSERT (Interface != NULL);
+  ASSERT (!EfiAtRuntime ());
+  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
 
-  // special handling if gEfiGraphicsOutputProtocolGuid is requested by boot.efi
+  Status = mPrivateData.HandleProtocol (Handle, Protocol, Interface);
+
   if ((Status == EFI_UNSUPPORTED)
    && (Handle == gST->ConsoleOutHandle)
    && CompareGuid (Protocol, &gEfiGraphicsOutputProtocolGuid)) {
-    // find it on some other handle
-    Status    = LocateProtocol (Protocol, NULL, Interface);
+    Status = EfiLocateProtocol (Protocol, NULL, Interface);
   }
 
   return Status;
 }
 
-// MoGetMemoryMap
-/** gBS->GetMemoryMap override:
-    Returns shrinked memory map. I think kernel can handle up to 128 entries.
+// MoSetVirtualAddressMap
+/** Changes the runtime addressing mode of EFI firmware from physical to
+    virtual.
+
+  @param[in] MemoryMapSize      The size in bytes of VirtualMap.
+  @param[in] DescriptorSize     The size in bytes of an entry in the
+                                VirtualMap.
+  @param[in] DescriptorVersion  The version of the structure entries in
+                                VirtualMap.
+  @param[in] VirtualMap         An array of memory descriptors which contain
+                                new virtual address mapping information for all
+                                runtime ranges.
+
+  @retval EFI_SUCCESS            The virtual address map has been applied.
+  @retval EFI_UNSUPPORTED        EFI firmware is not at runtime, or the EFI
+                                 firmware is already in virtual address mapped
+                                 mode.
+  @retval EFI_INVALID_PARAMETER  DescriptorSize or DescriptorVersion is
+                                 invalid.
+  @retval EFI_NO_MAPPING         A virtual address was not supplied for a range
+                                 in the memory map that requires a mapping.
+  @retval EFI_NOT_FOUND          A virtual address was supplied for an address
+                                 that is not found in the memory map.
 **/
+STATIC
 EFI_STATUS
 EFIAPI
-MoGetMemoryMap (
+MoSetVirtualAddressMap (
+  IN UINTN                  MemoryMapSize,
+  IN UINTN                  DescriptorSize,
+  IN UINT32                 DescriptorVersion,
+  IN EFI_MEMORY_DESCRIPTOR  *VirtualMap
+  )
+{
+  ASSERT (MemoryMapSize > 0);
+  ASSERT (DescriptorSize > 0);
+  ASSERT (DescriptorSize < MemoryMapSize);
+  ASSERT ((MemoryMapSize % DescriptorSize) == 0);
+  ASSERT (VirtualMap != NULL);
+
+  if (PcdGetBool (PcdPartialVirtualAddressMap)) {
+    VirtualMap = GetPartialVirtualAddressMap (
+                   MemoryMapSize,
+                   DescriptorSize,
+                   VirtualMap
+                   );
+  }
+
+  if (PcdGetBool (PcdMapVirtualPages)) {
+    MapVirtualPages (
+      MemoryMapSize,
+      DescriptorSize,
+      VirtualMap
+      );
+  }
+
+  return mPrivateData.SetVirtualAddressMap (
+                             MemoryMapSize,
+                             DescriptorSize,
+                             DescriptorVersion,
+                             VirtualMap
+                             );
+}
+
+// XnuPrepareStartNotify
+/** Invoke a notification event
+
+  @param[in] Event    Event whose notification function is being invoked.
+  @param[in] Context  The pointer to the notification function's context, which
+                      is implementation-dependent.
+**/
+STATIC
+VOID
+EFIAPI
+XnuPrepareStartNotify (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  // TODO: Call KernelHookLib
+}
+
+// InternalAllocatePages
+/** Allocates memory pages from the system.
+
+  @param[in]      Type        The type of allocation to perform.
+  @param[in]      MemoryType  The type of memory to allocate.
+                              MemoryType values in the range
+                              0x70000000..0x7FFFFFFF are reserved for OEM use.
+                              MemoryType values in the range
+                              0x80000000..0xFFFFFFFF are reserved for use by
+                              UEFI OS loaders that are provided by operating
+                              system vendors.
+  @param[in]      Pages       The number of contiguous 4 KB pages to allocate.
+  @param[in, out] Memory      The pointer to a physical address.  On input, the
+                              way in which the address is used depends on the
+                              value of Type.
+
+  @retval EFI_SUCCESS            The requested pages were allocated.
+  @retval EFI_INVALID_PARAMETER  1) Type is not AllocateAnyPages or
+                                 AllocateMaxAddress or AllocateAddress.
+                                 2) MemoryType is in the range
+                                 EfiMaxMemoryType..0x6FFFFFFF.
+                                 3) Memory is NULL.
+                                 4) MemoryType is EfiPersistentMemory.
+  @retval EFI_OUT_OF_RESOURCES   The pages could not be allocated.
+  @retval EFI_NOT_FOUND          The requested pages could not be found.
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+InternalAllocatePages (
+  IN     EFI_ALLOCATE_TYPE     Type,
+  IN     EFI_MEMORY_TYPE       MemoryType,
+  IN     UINTN                 Pages,
+  IN OUT EFI_PHYSICAL_ADDRESS  *Memory
+  )
+{
+  EFI_STATUS Status;
+
+  Status = EFI_OUT_OF_RESOURCES;
+
+  if (!mDisableMemoryAllocationServices) {
+    Status = mPrivateData.AllocatePages (Type, MemoryType, Pages, Memory);
+  }
+
+  return Status;
+}
+
+// InternalFreePages
+/** Frees memory pages.
+
+  @param[in] Memory  The base physical address of the pages to be freed.
+  @param[in] Pages   The number of contiguous 4 KB pages to free.
+
+  @retval EFI_SUCCESS            The requested pages were freed.
+  @retval EFI_INVALID_PARAMETER  Memory is not a page-aligned address or Pages
+                                 is invalid.
+  @retval EFI_NOT_FOUND          The requested memory pages were not allocated
+                                 with AllocatePages().
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+InternalFreePages (
+  IN EFI_PHYSICAL_ADDRESS  Memory,
+  IN UINTN                 Pages
+  )
+{
+  EFI_STATUS Status;
+
+  Status = EFI_SUCCESS;
+
+  if (!mDisableMemoryAllocationServices) {
+    Status = mPrivateData.FreePages (Memory, Pages);
+  }
+
+  return Status;
+}
+
+// InternalAllocatePool
+/** Allocates pool memory.
+
+  @param[in]  PoolType  The type of pool to allocate.  MemoryType values in the
+                        range 0x70000000..0x7FFFFFFF are reserved for OEM use.
+                        MemoryType values in the range 0x80000000..0xFFFFFFFF
+                        are reserved for use by UEFI OS loaders that are
+                        provided by operating system vendors.  The number of
+                        bytes to allocate from the pool.
+  @param[out] Buffer    A pointer to a pointer to the allocated buffer if the
+                        call succeeds; undefined otherwise.
+
+  @retval EFI_SUCCESS            The requested number of bytes was allocated.
+  @retval EFI_OUT_OF_RESOURCES   The pool requested could not be allocated.
+  @retval EFI_INVALID_PARAMETER  Buffer is NULL.
+                                 PoolType is in the range
+                                 EfiMaxMemoryType..0x6FFFFFFF.
+                                 PoolType is EfiPersistentMemory.
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+InternalAllocatePool (
+  IN  EFI_MEMORY_TYPE  PoolType,
+  IN  UINTN            Size,
+  OUT VOID             **Buffer
+  )
+{
+  EFI_STATUS Status;
+
+  Status = EFI_OUT_OF_RESOURCES;
+
+  if (!mDisableMemoryAllocationServices) {
+    Status = mPrivateData.AllocatePool (PoolType, Size, Buffer);
+  }
+
+  return Status;
+}
+
+// InternalFreePool
+/** Returns pool memory to the system.
+
+  @param[in] Buffer  The pointer to the buffer to free.
+
+  @retval EFI_SUCCESS            The memory was returned to the system.
+  @retval EFI_INVALID_PARAMETER  Buffer was invalid.
+
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+InternalFreePool (
+  IN VOID  *Buffer
+  )
+{
+  EFI_STATUS Status;
+
+  Status = EFI_SUCCESS;
+
+  if (!mDisableMemoryAllocationServices) {
+    Status = mPrivateData.FreePool (Buffer);
+  }
+
+  return Status;
+}
+
+// InternalGetMemoryMap
+/** Returns the current memory map.
+
+  @param[in, out] MemoryMapSize      A pointer to the size, in bytes, of the
+                                     MemoryMap buffer.  On input, this is the
+                                     size of the buffer allocated by the
+                                     caller.   On output, it is the size of the
+                                     buffer returned by the firmware if the
+                                     buffer was large enough, or the size of
+                                     the buffer needed to contain the map if
+                                     the buffer was too small.
+  @param[in, out] MemoryMap          A pointer to the buffer in which firmware
+                                     places the current memory map.
+  @param[out]     MapKey             A pointer to the location in which
+                                     firmware returns the key for the current
+                                     memory map.
+  @param[out]     DescriptorSize     A pointer to the location in which
+                                     firmware returns the size, in bytes, of an
+                                     individual EFI_MEMORY_DESCRIPTOR.
+  @param[out]     DescriptorVersion  A pointer to the location in which
+                                     firmware returns the version number
+                                     associated with the EFI_MEMORY_DESCRIPTOR.
+
+  @retval EFI_SUCCESS            The memory map was returned in the MemoryMap
+                                 buffer.
+  @retval EFI_BUFFER_TOO_SMALL   The MemoryMap buffer was too small.  The
+                                 current buffer size needed to hold the memory
+                                 map is returned in MemoryMapSize.
+  @retval EFI_INVALID_PARAMETER  1) MemoryMapSize is NULL.
+                                 2) The MemoryMap buffer is not too small and
+                                    MemoryMap is NULL.
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+InternalGetMemoryMap (
   IN OUT UINTN                  *MemoryMapSize,
   IN OUT EFI_MEMORY_DESCRIPTOR  *MemoryMap,
   OUT    UINTN                  *MapKey,
@@ -107,168 +389,183 @@ MoGetMemoryMap (
   OUT    UINT32                 *DescriptorVersion
   )
 {
-  EFI_STATUS Status;
+  STATIC BOOLEAN NonAppleBooterCall = FALSE;
 
-  Status = mGetMemoryMap (MemoryMapSize, MemoryMap, MapKey, DescriptorSize, DescriptorVersion);
+  EFI_STATUS     Status;
 
-  if (!EFI_ERROR (Status)) {
-    FixMemoryMap (*MemoryMapSize, MemoryMap, *DescriptorSize, *DescriptorVersion);
+  ASSERT (MemoryMapSize != NULL);
+  ASSERT ((((*MemoryMapSize > 0) ? 1 : 0)
+          ^ ((MemoryMap == NULL) ? 1 : 0)) != 0);
 
-#if !defined (RELOC_BLOCK)
-    ShrinkMemMap (MemoryMapSize, MemoryMap, *DescriptorSize, *DescriptorVersion);
-#endif
+  ASSERT (!EfiAtRuntime ());
+  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
+
+  if (!NonAppleBooterCall) {
+    ASSERT (!mXnuPrepareStartSignaledInCurrentBooter);
+
+    NonAppleBooterCall = TRUE;
+
+    EfiNamedEventSignal (&gXnuPrepareStartNamedEventGuid);
+
+    NonAppleBooterCall = FALSE;
+
+    mXnuPrepareStartSignaledInCurrentBooter = TRUE;
+  }
+
+  Status = mPrivateData.GetMemoryMap (
+                          MemoryMapSize,
+                          MemoryMap,
+                          MapKey,
+                          DescriptorSize,
+                          DescriptorVersion
+                          );
+
+  if (!NonAppleBooterCall && !EFI_ERROR (Status)) {
+    if (PcdGetBool (PcdShrinkMemoryMap)) {
+      ShrinkMemoryMap (
+        MemoryMapSize,
+        MemoryMap,
+        *DescriptorSize
+        );
+    }
+
+    if (PcdGetBool (PcdFixMemoryMap)) {
+      FixMemoryMap (
+        *MemoryMapSize,
+        MemoryMap,
+        *DescriptorSize
+        );
+    }
   }
 
   return Status;
 }
 
-// MoExitBootServices
-/** gBS->ExitBootServices override:
-    Patches kernel entry point with jump to our KernelEntryPatchJumpBack().
+// InternalExitBootServices
+/** Terminates all boot services.
+
+  @param[in] ImageHandle  Handle that identifies the exiting image.
+  @param[in] MapKey       Key to the latest memory map.
+
+  @retval EFI_SUCCESS            Boot services have been terminated.
+  @retval EFI_INVALID_PARAMETER  MapKey is incorrect.
+
 **/
+STATIC
 EFI_STATUS
 EFIAPI
-MoExitBootServices (
+InternalExitBootServices (
   IN EFI_HANDLE  ImageHandle,
   IN UINTN       MapKey
   )
 {
-  EFI_STATUS                Status;
+  EFI_STATUS Status;
 
-  IO_HIBERNATE_IMAGE_HEADER *ImageHeader;
-  IO_HIBERNATE_HANDOFF      *Handoff;
+  mDisableMemoryAllocationServices = TRUE;
 
-  // for tests: we can just return EFI_SUCCESS and continue using Print for debug.
-  Status = mExitBootServices (ImageHandle, MapKey);
+  Status = mPrivateData.ExitBootServices (ImageHandle, MapKey);
 
-  if (!EFI_ERROR (Status)) {
-#if defined (RELOC_BLOCK)
-    KernelEntryFromMachOPatchJump ((VOID*)(UINTN)(gRelocBase + 0x200000), 0); // KASLR is not available for AptioFix and thus slide=0
-#else
-    // we need hibernate image address for wake
-    if (gHibernateWake && (mHibernateImageAddress != 0)) {
-      ImageHeader = (IO_HIBERNATE_IMAGE_HEADER *)(UINTN)mHibernateImageAddress;
-      Status      = KernelEntryPatchJump ((UINT32)(UINTN)&ImageHeader->FileExtentMap[0] + ImageHeader->FileExtentMapSize + ImageHeader->Restore1CodeOffset);
-    }
-#endif // defined (RELOC_BLOCK)
-  }
+  ASSERT (!EFI_ERROR (Status));
+
+  mDisableMemoryAllocationServices = FALSE;
 
   return Status;
 }
 
-/** Returns file path from FilePath in allocated memory. Mem should be released by caler.*/
-CHAR16 *
-FileDevicePathToText (
-  IN EFI_DEVICE_PATH_PROTOCOL  *FilePath
+VOID
+OverwriteFirmwareServices (
+  VOID
   )
 {
-  CHAR16     *OutFilePathText;
+  EFI_STATUS Status;
+  EFI_TPL    OldTpl;
 
-  CHAR16     FilePathText[256]; // possible problem: if filepath is bigger
-  UINTN      SizeAll;
-  UINTN      Index;
-  UINTN      Size;
+  ASSERT (!mPrivateData.Overwritten);
 
-  FilePathText[0] = L'\0';
-  SizeAll         = 0;
+  Status = EFI_SUCCESS;
 
-  for (Index = 0; Index < 4; ++Index) {
-    if ((FilePath == NULL) || (DevicePathType (FilePath) == END_DEVICE_PATH_TYPE)) {
-      break;
-    }
-
-    if ((DevicePathType (FilePath) == MEDIA_DEVICE_PATH)
-     && (DevicePathSubType (FilePath) == MEDIA_FILEPATH_DP)) {
-      Size = ((DevicePathNodeLength (FilePath) - 4) / 2);
-
-      if ((SizeAll + Size) < 256) {
-        if ((SizeAll > 0) && (FilePathText[(SizeAll - 4) / 2] != L'\\')) {
-          StrCat (FilePathText, L"\\");
-        }
-
-        StrCat (FilePathText, ((FILEPATH_DEVICE_PATH *)FilePath)->PathName);
-
-        SizeAll = StrSize (FilePathText);
-      }
-    }
-
-    FilePath = NextDevicePathNode (FilePath);
+  if (PcdGetBool (PcdMapVirtualPages)) {
+    Status = VmAllocateMemoryPool ();
   }
 
-  OutFilePathText = NULL;
-  Size            = StrSize (FilePathText);
+  OldTpl = EfiRaiseTPL (TPL_HIGH_LEVEL);
 
-  if (Size > sizeof (FilePathText[0])) {
-    // we are allocating mem here - should be released by caller
-    OutFilePathText = AllocatePool (Size);
+  mPrivateData.GetMemoryMap = gBS->GetMemoryMap;
+  gBS->GetMemoryMap         = InternalGetMemoryMap;
 
-    if (OutFilePathText != NULL) {
-      StrnCpy (OutFilePathText, FilePathText, sizeof (OutFilePathText));
-    }
+  if (PcdGetBool (PcdHandleGop)) {
+    mPrivateData.HandleProtocol = gBS->HandleProtocol;
+    gBS->HandleProtocol         = HandleProtocolGop;
   }
 
-  return OutFilePathText;
+  if (PcdGetBool (PcdDisableMemoryAllocationServicesBeforeExitBS)) {
+    mPrivateData.AllocatePages = gBS->AllocatePages;
+    gBS->AllocatePages         = InternalAllocatePages;
+
+    mPrivateData.AllocatePool = gBS->AllocatePool;
+    gBS->AllocatePool         = InternalAllocatePool;
+
+    mPrivateData.ExitBootServices = gBS->ExitBootServices;
+    gBS->ExitBootServices         = InternalExitBootServices;
+
+    mPrivateData.FreePages = gBS->FreePages;
+    gBS->FreePages         = InternalFreePages;
+
+    mPrivateData.FreePool = gBS->FreePool;
+    gBS->FreePool         = InternalFreePool;
+  }
+
+  UPDATE_EFI_TABLE_HEADER_CRC32 (gBS->Hdr);
+
+  if (PcdGetBool (PcdPartialVirtualAddressMap)
+   || (PcdGetBool (PcdMapVirtualPages) && !EFI_ERROR (Status))) {
+    mPrivateData.SetVirtualAddressMap = gRT->SetVirtualAddressMap;
+    gRT->SetVirtualAddressMap         = MoSetVirtualAddressMap;
+
+    UPDATE_EFI_TABLE_HEADER_CRC32 (gRT->Hdr);
+  } else {
+    mPrivateData.SetVirtualAddressMap = NULL;
+  }
+
+  EfiRestoreTPL (OldTpl);
+
+  mPrivateData.Overwritten = TRUE;
 }
 
-// MoStartImage
-/** gBS->StartImage override:
-    Called to start an efi image.
-
-  If this is boot.efi, then run it with our overrides.
-**/
-EFI_STATUS
-EFIAPI
-MoStartImage (
-  IN  EFI_HANDLE  ImageHandle,
-  OUT UINTN       *ExitDataSize,
-  OUT CHAR16      **ExitData OPTIONAL
+VOID
+RestoreFirmwareServices (
+  VOID
   )
 {
-  EFI_STATUS                Status;
+  EFI_TPL OldTpl;
 
-  EFI_LOADED_IMAGE_PROTOCOL *Image;
-  CHAR16                    *FilePathText;
-  UINTN                     Size;
+  ASSERT (mPrivateData.Overwritten);
 
-  // find out image name from EfiLoadedImageProtocol
-  Status = OpenProtocol (ImageHandle, &gEfiLoadedImageProtocolGuid, (VOID **)&Image, gImageHandle, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+  OldTpl = EfiRaiseTPL (TPL_HIGH_LEVEL);
 
-  if (!EFI_ERROR (Status)) {
-    FilePathText = FileDevicePathToText (Image->FilePath);
-    Status       = CloseProtocol (ImageHandle, &gEfiLoadedImageProtocolGuid, gImageHandle, NULL);
+  gBS->GetMemoryMap = mPrivateData.GetMemoryMap;
 
-    // check if this is boot.efi
-    if ((StrStr (FilePathText, L"boot.efi")) != NULL) {
-#if defined (RELOC_BLOCK)
-      Status = RunImageWithOverrides (ImageHandle, ExitDataSize, ExitData);
-#else
-      // the presence of the variable means HibernateWake
-      // if the wake is canceled then the variable must be deleted
-      Size           = 0;
-      Status         = GetVariable (L"boot-switch-vars", &gAppleBootVariableGuid, 0, &Size, NULL);
-      gHibernateWake = (Status == EFI_BUFFER_TOO_SMALL);
-
-      if (!gHibernateWake) {
-        Size           = 0;
-        Status         = GetVariable (L"boot-signature", &gAppleBootVariableGuid, 0, &Size, NULL);
-
-        if (Status == EFI_BUFFER_TOO_SMALL) {
-          Size           = 0;
-          Status         = GetVariable (L"boot-image-key", &gAppleBootVariableGuid, 0, &Size, NULL);
-          gHibernateWake = TRUE;
-        }
-      }
-
-      Status = RunImageWithOverrides (ImageHandle, Image, ExitDataSize, ExitData);
-#endif // defined (RELOC_BLOCK)
-    } else {
-      Status = mStartImage (ImageHandle, ExitDataSize, ExitData);
-    }
-
-    if (FilePathText != NULL) {
-      FreePool ((VOID *)FilePathText);
-    }
+  if (PcdGetBool (PcdHandleGop)) {
+    gBS->HandleProtocol = mPrivateData.HandleProtocol;
   }
 
-  return Status;
+  if (PcdGetBool (PcdDisableMemoryAllocationServicesBeforeExitBS)) {
+    gBS->AllocatePages    = mPrivateData.AllocatePages;
+    gBS->AllocatePool     = mPrivateData.AllocatePool;
+    gBS->ExitBootServices = mPrivateData.ExitBootServices;
+    gBS->FreePages        = mPrivateData.FreePages;
+    gBS->FreePool         = mPrivateData.FreePool;
+  }
+
+  UPDATE_EFI_TABLE_HEADER_CRC32 (gBS->Hdr);
+
+  if (mPrivateData.SetVirtualAddressMap != NULL) {
+    gRT->SetVirtualAddressMap = mPrivateData.SetVirtualAddressMap;
+
+    UPDATE_EFI_TABLE_HEADER_CRC32 (gRT->Hdr);
+  }
+
+  EfiRestoreTPL (OldTpl);
+
+  mPrivateData.Overwritten = FALSE;
 }

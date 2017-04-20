@@ -1,6 +1,6 @@
 /** @file
-  Copyright (C) 2012 - 2014 Damir Mazar.  All rights reserved.<BR>
-  Portions Copyright (C) 2015 - 2016 CupertinoNet.  All rights reserved.<BR>
+  Copyright (C) 2012 - 2014 Damir Mažar.  All rights reserved.<BR>
+  Portions Copyright (C) 2015 - 2016, CupertinoNet.  All rights reserved.<BR>
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions
@@ -29,7 +29,9 @@
 
 #include <Uefi.h>
 
-#include <AppleHibernate.h>
+#include <XnuHibernate.h>
+
+#include <Library/DebugLib.h>
 
 // FixHibernateWake
 UINTN
@@ -40,19 +42,26 @@ FixHibernateWake (
   IO_HIBERNATE_IMAGE_HEADER *ImageHeader;
   IO_HIBERNATE_HANDOFF      *Handoff;
 
+  ASSERT (ImageHeaderPage != 0);
+
+  // dmazar:
   // at this stage HIB section is not yet copied from sleep image to it's
   // proper memory destination. so we'll patch entry point in sleep image.
   // we need to remove memory map handoff. my system restarts if we leave it there
   // if mem map handoff is not present, then kernel will not map those new rt pages
   // and that is what we need on our faulty UEFIs.
   // it's the equivalent to RemoveRTFlagMappings() in normal boot.
-  ImageHeader = (IO_HIBERNATE_IMAGE_HEADER *)EFI_PAGES_TO_SIZE (ImageHeaderPage);
-  Handoff     = (IO_HIBERNATE_HANDOFF *)EFI_PAGES_TO_SIZE ((UINTN)ImageHeader->HandoffPages);
+
+  // TODO: Check signature
+
+  ImageHeader = (IO_HIBERNATE_IMAGE_HEADER *)(ImageHeaderPage << EFI_PAGE_SHIFT);
+  Handoff     = (IO_HIBERNATE_HANDOFF *)(UINTN)(ImageHeader->HandoffPages << EFI_PAGE_SHIFT);
   //ImageHeader->systemTableOffset = (UINT32)(UINTN)(gRelocatedSysTableRtArea - ImageHeader->runtimePages);
 
   while (Handoff->Type != IoHibernateHandoffTypeEnd) {
     if (Handoff->Type == IoHibernateHandoffTypeMemoryMap) {
-      Handoff->Type = IoHibernateHandoffType;
+      Handoff->Type = (IO_HIBERNATE_HANDOFF_PREFIX | 0xFFFF);
+
       break;
     }
 
@@ -60,18 +69,4 @@ FixHibernateWake (
   }
 
   return ImageHeaderPage;
-}
-
-// MoHibernateExitBootServices
-/** gBS->ExitBootServices override:
-    Patches kernel entry point with jump to our KernelEntryPatchJumpBack().
-**/
-EFI_STATUS
-EFIAPI
-MoHibernateExitBootServices (
-  IN EFI_HANDLE  ImageHandle,
-  IN UINTN       MapKey
-  )
-{
-  
 }

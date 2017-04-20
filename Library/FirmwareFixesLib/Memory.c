@@ -1,7 +1,7 @@
 /** @file
-  Copyright (C) 2012 - 2014 Damir Mazar.  All rights reserved.<BR>
-  Portions Copyright (C) 2012 modbin.  All rights reserved.<BR>
-  Portions Copyright (C) 2015 - 2016 CupertinoNet.  All rights reserved.<BR>
+  Copyright (C) 2012 modbin.  All rights reserved.<BR>
+  Portions Copyright (C) 2012 - 2014 Damir Mažar.  All rights reserved.<BR>
+  Portions Copyright (C) 2015 - 2016, CupertinoNet.  All rights reserved.<BR>
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions
@@ -32,153 +32,62 @@
 
 #include <MiscBase.h>
 
+#include <Library/CupertinoXnuLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/MiscMemoryLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
-#include <Library/MemoryAllocationLib.h>
-#include <Library/AppleXnuLib.h>
-
-#include "FirmwareFixes.h"
-
-// PREV_MEMORY_DESCRIPTOR
-/** Macro that returns the a pointer to the next EFI_MEMORY_DESCRIPTOR in an array 
-    returned from GetMemoryMap().  
-
-  @param[in] MemoryDescriptor  A pointer to an EFI_MEMORY_DESCRIPTOR.
-
-  @param[in] Size              The size, in bytes, of the current EFI_MEMORY_DESCRIPTOR.
-
-  @return A pointer to the next EFI_MEMORY_DESCRIPTOR.
-**/
-#define PREV_MEMORY_DESCRIPTOR(MemoryDescriptor, Size) \
-  ((EFI_MEMORY_DESCRIPTOR *)((UINTN)(MemoryDescriptor) - (Size)))
-
-// AllocatePagesFromTop
-/** Alloctes Pages from the top of mem, up to address specified in Memory. Returns allocated address in Memory.
-**/
-EFI_STATUS
-EFIAPI
-AllocatePagesFromTop (
-  IN EFI_MEMORY_TYPE           MemoryType,
-  IN UINTN                     Pages,
-  IN OUT EFI_PHYSICAL_ADDRESS  *Memory
-  )
-{
-  EFI_STATUS            Status;
-
-  UINTN                 MemoryMapSize;
-  EFI_MEMORY_DESCRIPTOR *MemoryMap;
-  UINTN                 MapKey;
-  UINTN                 DescriptorSize;
-  UINT32                DescriptorVersion;
-  EFI_MEMORY_DESCRIPTOR *MemoryMapEnd;
-  EFI_MEMORY_DESCRIPTOR *Desc;
-
-  Status    = EFI_NOT_FOUND;
-  MemoryMap = GetMemoryMapBuffer (gBS->GetMemoryMap, &MemoryMapSize, &MapKey, &DescriptorSize, &DescriptorVersion);
-
-  if (MemoryMap != NULL) {
-    MemoryMapEnd = NEXT_MEMORY_DESCRIPTOR (MemoryMap, MemoryMapSize);
-    Desc         = PREV_MEMORY_DESCRIPTOR (MemoryMapEnd, DescriptorSize);
-
-    while ((UINTN)Desc >= (UINTN)MemoryMap) {
-      if ((Desc->Type == EfiConventionalMemory) && (Pages <= Desc->NumberOfPages) && ((Desc->PhysicalStart + EFI_PAGES_TO_SIZE (Pages)) <= *Memory)) {
-        // free block found
-        if (Desc->PhysicalStart + EFI_PAGES_TO_SIZE ((UINTN)Desc->NumberOfPages) <= *Memory) {
-          // the whole block is unded Memory - allocate from the top of the block
-          *Memory = (Desc->PhysicalStart + EFI_PAGES_TO_SIZE ((UINTN)Desc->NumberOfPages - Pages));
-        } else {
-          // the block contains enough pages under Memory, but spans above it - allocate below Memory.
-          *Memory -= EFI_PAGES_TO_SIZE (Pages);
-        }
-
-        Status = gBS->AllocatePages (AllocateAddress, MemoryType, Pages, (VOID *)Memory);
-
-        break;
-      }
-
-      Desc = PREV_MEMORY_DESCRIPTOR (Desc, DescriptorSize);
-    }
-
-    // release mem
-    FreePool ((VOID *)MemoryMap);
-  }
-
-  return Status;
-}
-
-// GetNoRuntimePages
-/** Helper function that calculates number of RT and MMIO pages from mem map.
-**/
-EFI_STATUS
-GetNoRuntimePages (
-  OUT UINTN  *NoPages
-  )
-{
-  EFI_STATUS            Status;
-
-  UINTN                 MemoryMapSize;
-  EFI_MEMORY_DESCRIPTOR *MemoryMap;
-  UINTN                 MapKey;
-  UINTN                 DescriptorSize;
-  UINT32                DescriptorVersion;
-  UINTN                 Index;
-
-  Status = GetMemoryMapBuffer (gBS->GetMemoryMap, &MemoryMapSize, &MemoryMap, &MapKey, &DescriptorSize, &DescriptorVersion);
-
-  if (!EFI_ERROR (Status)) {
-    FixMemoryMap (MemoryMapSize, MemoryMap, DescriptorSize, DescriptorVersion);
-
-    // Sum RT and MMIO areas - all that have runtime attribute
-    *NoPages = 0;
-
-    for (Index = 0; Index < (MemoryMapSize / DescriptorSize); ++Index) {
-      if (BIT_SET (MemoryMap->Attribute, EFI_MEMORY_RUNTIME)) {
-        *NoPages += MemoryMap->NumberOfPages;
-      }
-
-      MemoryMap = NEXT_MEMORY_DESCRIPTOR (MemoryMap, DescriptorSize);
-    }
-  }
-
-  return Status;
-}
 
 // FreeLowMemory
-/** Free all mem regions between 0x100000 and KERNEL_TOP_ADDRESS
+/** Free all memory pages in the XNU Kernel Address Space.
 **/
 VOID
-FreeLowMemory (
+FreeXnuMemorySpace (
   VOID
   )
 {
-  EFI_STATUS            Status;
   UINTN                 MemoryMapSize;
   EFI_MEMORY_DESCRIPTOR *MemoryMap;
   UINTN                 MapKey;
   UINTN                 DescriptorSize;
   UINT32                DescriptorVersion;
-  EFI_MEMORY_DESCRIPTOR *MemoryMapEnd;
-  EFI_MEMORY_DESCRIPTOR *Desc;
+  UINTN                 MemoryMapTop;
+  EFI_MEMORY_DESCRIPTOR *MemoryDescriptor;
+  EFI_PHYSICAL_ADDRESS  MemoryStart;
+  EFI_PHYSICAL_ADDRESS  MemoryTop;
 
-  Status = GetMemoryMapBuffer (
-             gBS->GetMemoryMap,
-             &MemoryMapSize,
-             &MemoryMap,
-             &MapKey,
-             &DescriptorSize,
-             &DescriptorVersion
-             );
+  MemoryMap = GetMemoryMapBuffer (
+                gBS->GetMemoryMap,
+                &MemoryMapSize,
+                &MapKey,
+                &DescriptorSize,
+                &DescriptorVersion
+                );
 
-  if (!EFI_ERROR (Status)) {
-    MemoryMapEnd = NEXT_MEMORY_DESCRIPTOR (MemoryMap, MemoryMapSize);
+  if (MemoryMap != NULL) {
+    MemoryMapTop     = ((UINTN)MemoryMap + MemoryMapSize);
+    MemoryDescriptor = MemoryMap;
 
-    for (Desc = MemoryMap; Desc < MemoryMapEnd; Desc = NEXT_MEMORY_DESCRIPTOR (Desc, DescriptorSize)) {
-      if (Desc->Type != EfiConventionalMemory
-       && Desc->PhysicalStart + EFI_PAGES_TO_SIZE ((UINTN)Desc->NumberOfPages) > 0x100000
-       && Desc->PhysicalStart < APPLE_XNU_MAX_ADDRESS
-        ) {
-        FreePages ((VOID *)Desc->PhysicalStart, Desc->NumberOfPages);
+    while ((UINTN)MemoryDescriptor < MemoryMapTop) {
+      if ((MemoryDescriptor->Type != EfiConventionalMemory)) {
+        MemoryStart = MemoryDescriptor->PhysicalStart;
+
+        if (MemoryStart <= XNU_KERNEL_MAX_PHYSICAL_ADDRESS) {
+          MemoryTop = MEMORY_DESCRIPTOR_PHYSICAL_TOP (MemoryDescriptor);
+
+          if (MemoryTop > XNU_KERNEL_MIN_PHYSICAL_ADDRESS) {
+            FreePages (
+              (VOID *)(UINTN)MemoryDescriptor->PhysicalStart,
+              (UINTN)MemoryDescriptor->NumberOfPages
+              );
+          }
+        }
       }
+
+      MemoryDescriptor = NEXT_MEMORY_DESCRIPTOR (
+                           MemoryDescriptor,
+                           DescriptorSize
+                           );
     }
 
     FreePool ((VOID *)MemoryMap);

@@ -25,6 +25,8 @@
   SKUID_IDENTIFIER        = DEFAULT
   DSC_SPECIFICATION       = 0x00010006
 
+  # TODO: Cleanup...
+
 [LibraryClasses]
   UefiDriverEntryPoint|MdePkg/Library/UefiDriverEntryPoint/UefiDriverEntryPoint.inf
   BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
@@ -44,10 +46,15 @@
   CacheMaintenanceLib|MdePkg/Library/BaseCacheMaintenanceLib/BaseCacheMaintenanceLib.inf
   PeCoffLib|MdePkg/Library/BasePeCoffLib/BasePeCoffLib.inf
   PeCoffExtraActionLib|MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
+  DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
+
+  MiscDevicePathLib|EfiMiscPkg/Library/MiscDevicePathLib/MiscDevicePathLib.inf
  
   KernelEntryHookMemoryAllocationLib|CupertinoSupportPkg/Library/KernelEntryHookMemoryAllocationLib/KernelEntryHookMemoryAllocationLib.inf
   KernelEntryNotifyImageLib|CupertinoSupportPkg/Library/KernelEntryNotifyImageLib/KernelEntryNotifyImageLib.inf
   CupertinoXnuLib|CupertinoXnuPkg/Library/CupertinoXnuLib/CupertinoXnuLib.inf
+  CupertinoFatBinaryLib|CupertinoXnuPkg/Library/CupertinoFatBinaryLib/CupertinoFatBinaryLib.inf
+  FirmwareFixesLib|CupertinoSupportPkg/Library/FirmwareFixesLib/FirmwareFixesLib.inf
 
 [LibraryClasses.IA32, LibraryClasses.X64]
   KernelEntryHookLib|CupertinoSupportPkg/Library/KernelEntryHookLib/KernelEntryHookLib.inf
@@ -60,10 +67,13 @@
   NULL|MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
 
 [Components]
+  CupertinoSupportPkg/Driver/AppleBooterNotifyDxe/AppleBooterNotifyDxe.inf
+  CupertinoSupportPkg/Driver/BlessDxe/BlessDxe.inf
+  CupertinoSupportPkg/Driver/FatBinaryDxe/FatBinaryDxe.inf
+  CupertinoSupportPkg/Library/FirmwareFixesLib/FirmwareFixesLib.inf
   CupertinoSupportPkg/Library/KernelEntryHookMemoryAllocationLib/KernelEntryHookMemoryAllocationLib.inf
   CupertinoSupportPkg/Library/KernelEntryNotifyImageLib/KernelEntryNotifyImageLib.inf
 
 [Components.IA32, Components.X64]
   CupertinoSupportPkg/Library/KernelEntryHookLib/KernelEntryHookLib.inf
   CupertinoSupportPkg/Library/KernelEntryNotifyLib/KernelEntryNotifyLib.inf
-  CupertinoSupportPkg/Library/KernelEntryHookLib/TestDrv.inf

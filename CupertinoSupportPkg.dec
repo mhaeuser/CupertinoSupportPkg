@@ -24,3 +24,33 @@
 
 [Includes]
   Include
+
+[Guids]
+  ## CupertinoSupport package token space guid
+  # Include/Guid/CupertinoSupportPkgTokenSpace.h
+  gCupertinoSupportPkgTokenSpaceGuid = { 0xA446482, 0xBC85, 0x483A, { 0xA7, 0x81, 0x5B, 0xAD, 0xB0, 0x2F, 0x9F, 0x47 }}
+
+  gXnuPrepareStartNamedEventGuid = { 0x227130A4, 0xDC29, 0x41C4, { 0x8E, 0xA1, 0xDF, 0x52, 0xE6, 0x35, 0x58, 0x12 } }
+
+  gAppleBooterExitNamedEventGuid = { 0x75045df7, 0x10b2, 0x4e70, { 0x9d, 0x9d, 0x84, 0x5a, 0x14, 0xcf, 0x37, 0xae } }
+
+[Protocols]
+  gAppleBooterHandleProtocolGuid = { 0x25328e32, 0x4ae1, 0x4210,{ 0x85, 0xb6, 0x3e, 0x94, 0xf6, 0xb5, 0xe6, 0xa } }
+
+[PcdsFeatureFlag]
+  ## Indicates if FirmwareFixesLib preserves the EFI System Table in its
+  ## original location.<BR><BR>
+  #   TRUE  - FirmwareFixesLib will preserve the original EFI System Table.<BR>
+  #   FALSE - FirmwareFixesLib will not preserve the original EFI System Table.<BR>
+  # @Prompt Preserve the original EFI System Table from being relocated by the Apple booter.
+  gCupertinoSupportPkgTokenSpaceGuid.PcdPreserveOriginalSystemTable|FALSE|BOOLEAN|0x00000000
+
+  # TODO: Clean up...
+
+  gCupertinoSupportPkgTokenSpaceGuid.PcdPartialVirtualAddressMap|FALSE|BOOLEAN|0x00000001
+  gCupertinoSupportPkgTokenSpaceGuid.PcdMapVirtualPages|FALSE|BOOLEAN|0x00000002
+  gCupertinoSupportPkgTokenSpaceGuid.PcdShrinkMemoryMap|FALSE|BOOLEAN|0x00000003
+  gCupertinoSupportPkgTokenSpaceGuid.PcdFixMemoryMap|FALSE|BOOLEAN|0x00000004
+  gCupertinoSupportPkgTokenSpaceGuid.PcdHandleGop|FALSE|BOOLEAN|0x00000005
+  gCupertinoSupportPkgTokenSpaceGuid.PcdDisableMemoryAllocationServicesBeforeExitBS|FALSE|BOOLEAN|0x00000006
+  gCupertinoSupportPkgTokenSpaceGuid.PcdSignalAppleOSLoadedEvent|FALSE|BOOLEAN|0x00000007

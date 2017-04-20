@@ -17,35 +17,39 @@
 ##
 
 [Defines]
-  BASE_NAME               = KernelEntryHookLib
-  LIBRARY_CLASS           = KernelEntryHookLib
-  MODULE_TYPE             = BASE
-  INF_VERSION             = 0x00010005
-  SUPPORTED_ARCHITECTURES = IA32|X64
+  BASE_NAME    = AppleBooterNotifyDxe
+  FILE_GUID    = 3BCA84F0-4C06-4C73-9329-9E362D1A8C09
+  MODULE_TYPE  = UEFI_DRIVER
+  ENTRY_POINT  = AppleBooterNotifyMain
+  UNLOAD_IMAGE = AppleBooterNotifyUnload
+  INF_VERSION  = 0x00010005
 
 [Packages]
   MdePkg/MdePkg.dec
-  EfiMiscPkg/EfiMiscPkg.dec
-  CupertinoXnuPkg/CupertinoXnuPkg.dec
   CupertinoSupportPkg/CupertinoSupportPkg.dec
-  AppleXnuPkg/AppleXnuPkg.dec
+  EfiMiscPkg/EfiMiscPkg.dec
+  ApplePkg/ApplePkg.dec
 
 [LibraryClasses]
-  AppleMachoLib
   BaseMemoryLib
-  CacheMaintenanceLib
-  CupertinoXnuLib
-  KernelEntryNotifyLib
-  KernelEntryHookMemoryAllocationLib
-  KernelEntryNotifyImageLib
+  DebugLib
+  DevicePathLib
+  EfiBootServicesLib
+  MemoryAllocationLib
+  MiscDevicePathLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
 
-[Sources.Common]
-  KernelEntryHookInternal.h
-  KernelEntryHook32.nasm
-  KernelEntryHookLib.c
+[Guids]
+  gAppleBooterExitNamedEventGuid  ## CONSUMES
+  gAppleOSLoadedNamedEventGuid    ## CONSUMES
 
-[Sources.Ia32]
-  Ia32/PrepareKernelEntryHook32.nasm
+[Protocols]
+  gAppleBooterHandleProtocolGuid  ## CONSUMES
 
-[Sources.X64]
-  X64/PrepareKernelEntryHook32.nasm
+[FeaturePcd]
+  gCupertinoSupportPkgTokenSpaceGuid.PcdSignalAppleOSLoadedEvent  ## CONSUMES
+
+[Sources]
+  AppleBooterNotifyDxe.c

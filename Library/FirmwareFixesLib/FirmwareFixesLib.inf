@@ -17,18 +17,17 @@
 ##
 
 [Defines]
-  BASE_NAME               = KernelEntryHookLib
-  LIBRARY_CLASS           = KernelEntryHookLib
+  BASE_NAME               = FirmwareFixesLib
+  LIBRARY_CLASS           = FirmwareFixesLib
   MODULE_TYPE             = BASE
   INF_VERSION             = 0x00010005
-  SUPPORTED_ARCHITECTURES = IA32|X64
 
 [Packages]
   MdePkg/MdePkg.dec
-  EfiMiscPkg/EfiMiscPkg.dec
-  CupertinoXnuPkg/CupertinoXnuPkg.dec
   CupertinoSupportPkg/CupertinoSupportPkg.dec
+  EfiMiscPkg/EfiMiscPkg.dec
   AppleXnuPkg/AppleXnuPkg.dec
+  CupertinoXnuPkg/CupertinoXnuPkg.dec
 
 [LibraryClasses]
   AppleMachoLib
@@ -39,13 +38,19 @@
   KernelEntryHookMemoryAllocationLib
   KernelEntryNotifyImageLib
 
-[Sources.Common]
-  KernelEntryHookInternal.h
-  KernelEntryHook32.nasm
-  KernelEntryHookLib.c
+[FeaturePcd]
+  gCupertinoSupportPkgTokenSpaceGuid.PcdPreserveOriginalSystemTable                  ## CONSUMES
+  gCupertinoSupportPkgTokenSpaceGuid.PcdPartialVirtualAddressMap                     ## CONSUMES
+  gCupertinoSupportPkgTokenSpaceGuid.PcdMapVirtualPages                              ## CONSUMES
+  gCupertinoSupportPkgTokenSpaceGuid.PcdShrinkMemoryMap                              ## CONSUMES
+  gCupertinoSupportPkgTokenSpaceGuid.PcdFixMemoryMap                                 ## CONSUMES
+  gCupertinoSupportPkgTokenSpaceGuid.PcdHandleGop                                    ## CONSUMES
+  gCupertinoSupportPkgTokenSpaceGuid.PcdDisableMemoryAllocationServicesBeforeExitBS  ## CONSUMES
 
-[Sources.Ia32]
-  Ia32/PrepareKernelEntryHook32.nasm
-
-[Sources.X64]
-  X64/PrepareKernelEntryHook32.nasm
+[Sources]
+  FirmwareFixesInternal.h
+  FirmwareFixesLib.c
+  FirmwareServices.c
+  Hibernate.c
+  Memory.c
+  MemoryMap.c
