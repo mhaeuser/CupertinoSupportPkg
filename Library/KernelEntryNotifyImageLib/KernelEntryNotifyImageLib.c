@@ -20,8 +20,8 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/CacheMaintenanceLib.h>
 #include <Library/DebugLib.h>
-#include <Library/KernelEntryHookMemoryAllocationLib.h>
 #include <Library/PeCoffLib.h>
+#include <Library/XnuSupportMemoryAllocationLib.h>
 
 LIST_ENTRY gNotifys = INITIALIZE_LIST_HEAD_VARIABLE (gNotifys);
 
@@ -65,7 +65,7 @@ LoadKernelEntryNotifyImage (
       }
 
       ImageContext.ImageAddress = (PHYSICAL_ADDRESS)(UINTN)(
-                                    AllocateKernelHookCode (Size)
+                                    AllocateXnuSupportCode (Size)
                                     );
 
       if (ImageContext.ImageAddress != 0) {
@@ -91,7 +91,7 @@ LoadKernelEntryNotifyImage (
           }
         }
 
-        FreeKernelHookMemory (
+        FreeXnuSupportMemory (
           (VOID *)(UINTN)ImageContext.ImageAddress,
           EFI_SIZE_TO_PAGES (Size)
           );

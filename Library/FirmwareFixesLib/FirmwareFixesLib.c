@@ -33,10 +33,11 @@
 #include <Guid/XnuPrepareStartNamedEvent.h>
 
 #include <Protocol/AppleBooterHandle.h>
-#include <Protocol/LoadedImage.h>
 
 #include <Library/DebugLib.h>
 #include <Library/EfiBootServicesLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/MiscEventLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
@@ -45,12 +46,15 @@
 
 // FIRMWARE_FIXES_PRIVATE_DATA
 typedef struct {
-  EFI_EVENT                   AppleBooterHandleNotifyEvent;
-  VOID                        *AppleBooterHandleRegistration;
+  EFI_EVENT AppleBooterHandleNotifyEvent;
+  VOID      *AppleBooterHandleRegistration;
 } FIRMWARE_FIXES_PRIVATE_DATA;
 
 // mPrivateData
-STATIC FIRMWARE_FIXES_PRIVATE_DATA mPrivateData;
+STATIC FIRMWARE_FIXES_PRIVATE_DATA mPrivateData = {
+  NULL,
+  NULL
+};
 
 // AppleBooterExitNotify
 /** Invoke a notification event
@@ -59,6 +63,7 @@ STATIC FIRMWARE_FIXES_PRIVATE_DATA mPrivateData;
   @param[in] Context  The pointer to the notification function's context,
                       which is implementation-dependent.
 **/
+STATIC
 VOID
 EFIAPI
 AppleBooterExitNotify (
@@ -67,6 +72,10 @@ AppleBooterExitNotify (
   )
 {
   RestoreFirmwareServices ();
+  
+  if (PcdGetBool (PcdPreserveSystemTable)) {
+    InternalFreeSystemTableCopy ();
+  }
 
   EfiCloseEvent (Event);
 }
@@ -78,6 +87,7 @@ AppleBooterExitNotify (
   @param[in] Context  The pointer to the notification function's context,
                       which is implementation-dependent.
 **/
+STATIC
 VOID
 EFIAPI
 AppleBooterStartNotify (
@@ -85,36 +95,10 @@ AppleBooterStartNotify (
   IN VOID       *Context
   )
 {
-  FIRMWARE_FIXES_PRIVATE_DATA *PrivateData;
-  EFI_STATUS                  Status;
-  EFI_HANDLE                  BooterHandle;
-  EFI_LOADED_IMAGE_PROTOCOL   *LoadedImage;
-
-  ASSERT (Context != NULL);
-
-  PrivateData = (FIRMWARE_FIXES_PRIVATE_DATA *)Context;
-
   mXnuPrepareStartSignaledInCurrentBooter = FALSE;
 
-  if (PcdGetBool (PcdPreserveOriginalSystemTable)) {
-    Status = EfiLocateProtocol (
-               &gAppleBooterHandleProtocolGuid,
-               PrivateData->AppleBooterHandleRegistration,
-               (VOID **)&BooterHandle
-               );
-
-    ASSERT (Status != EFI_NOT_FOUND);
-
-    Status = EfiHandleProtocol (
-               BooterHandle,
-               &gEfiLoadedImageProtocolGuid,
-               (VOID **)&LoadedImage
-               );
-
-    ASSERT (Status != EFI_UNSUPPORTED);
-
-    // TODO: Implement.
-    //LoadedImage->SystemTable = (EFI_SYSTEM_TABLE *)(UINTN)mSTCopy;
+  if (PcdGetBool (PcdPreserveSystemTable)) {
+    InternalOverrideSystemTable (mPrivateData.AppleBooterHandleRegistration);
   }
 
   OverwriteFirmwareServices ();
@@ -134,13 +118,10 @@ FirmwareFixesLibConstructor (
   VOID
   )
 {
-  EfiCreateEvent (
-    EVT_NOTIFY_SIGNAL,
-    TPL_NOTIFY,
-    AppleBooterStartNotify,
-    (VOID *)&mPrivateData,
-    &mPrivateData.AppleBooterHandleNotifyEvent
-    );
+  mPrivateData.AppleBooterHandleNotifyEvent = MiscCreateNotifySignalEvent (
+                                                AppleBooterStartNotify,
+                                                NULL
+                                                );
 
   EfiRegisterProtocolNotify (
     &gAppleBooterHandleProtocolGuid,

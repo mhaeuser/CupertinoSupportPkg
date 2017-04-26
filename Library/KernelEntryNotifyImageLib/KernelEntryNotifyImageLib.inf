@@ -32,7 +32,7 @@
   BaseMemoryLib
   CacheMaintenanceLib
   DebugLib
-  KernelEntryHookMemoryAllocationLib
+  XnuSupportMemoryAllocationLib
   PeCoffLib
 
 [Sources.Common]

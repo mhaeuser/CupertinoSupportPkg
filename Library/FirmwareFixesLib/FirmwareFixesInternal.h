@@ -41,11 +41,25 @@ typedef struct {
 
 extern BOOLEAN mXnuPrepareStartSignaledInCurrentBooter;
 
+// InternalOverrideSystemTable
+VOID
+InternalOverrideSystemTable (
+  IN VOID  *Registration
+  );
+
+// InternalFreeSystemTableCopy
+VOID
+InternalFreeSystemTableCopy (
+  VOID
+  );
+
+// OverwriteFirmwareServices
 VOID
 OverwriteFirmwareServices (
   VOID
   );
 
+// RestoreFirmwareServices
 VOID
 RestoreFirmwareServices (
   VOID

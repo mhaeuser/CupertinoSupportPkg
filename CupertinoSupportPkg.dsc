@@ -50,7 +50,7 @@
 
   MiscDevicePathLib|EfiMiscPkg/Library/MiscDevicePathLib/MiscDevicePathLib.inf
  
-  KernelEntryHookMemoryAllocationLib|CupertinoSupportPkg/Library/KernelEntryHookMemoryAllocationLib/KernelEntryHookMemoryAllocationLib.inf
+  XnuSupportMemoryAllocationLib|CupertinoSupportPkg/Library/XnuSupportMemoryAllocationLib/XnuSupportMemoryAllocationLib.inf
   KernelEntryNotifyImageLib|CupertinoSupportPkg/Library/KernelEntryNotifyImageLib/KernelEntryNotifyImageLib.inf
   CupertinoXnuLib|CupertinoXnuPkg/Library/CupertinoXnuLib/CupertinoXnuLib.inf
   CupertinoFatBinaryLib|CupertinoXnuPkg/Library/CupertinoFatBinaryLib/CupertinoFatBinaryLib.inf
@@ -71,7 +71,7 @@
   CupertinoSupportPkg/Driver/BlessDxe/BlessDxe.inf
   CupertinoSupportPkg/Driver/FatBinaryDxe/FatBinaryDxe.inf
   CupertinoSupportPkg/Library/FirmwareFixesLib/FirmwareFixesLib.inf
-  CupertinoSupportPkg/Library/KernelEntryHookMemoryAllocationLib/KernelEntryHookMemoryAllocationLib.inf
+  CupertinoSupportPkg/Library/XnuSupportMemoryAllocationLib/XnuSupportMemoryAllocationLib.inf
   CupertinoSupportPkg/Library/KernelEntryNotifyImageLib/KernelEntryNotifyImageLib.inf
 
 [Components.IA32, Components.X64]

@@ -24,8 +24,8 @@
 #include <Library/DebugLib.h>
 #include <Library/KernelEntryNotifyLib.h>
 #include <Library/KernelEntryHookLib.h>
-#include <Library/KernelEntryHookMemoryAllocationLib.h>
 #include <Library/KernelEntryNotifyImageLib.h>
+#include <Library/XnuSupportMemoryAllocationLib.h>
 
 #include "KernelEntryHookInternal.h"
 
@@ -55,10 +55,10 @@ KernelEntryHook (
   if (NotifyEntry != 0) {
     MemorySize = (sizeof (*Context) + KERNEL_ENTRY_HOOK_32_SIZE);
 
-    Memory = AllocateKernelHookData (MemorySize);
+    Memory = AllocateXnuSupportData (MemorySize);
 
     if (Memory != NULL) {
-      HandlerEntry = AllocateKernelHookCode (KERNEL_ENTRY_HANDLER_32_SIZE);
+      HandlerEntry = AllocateXnuSupportCode (KERNEL_ENTRY_HANDLER_32_SIZE);
 
       if (HandlerEntry != NULL) {
         Context                      = (KERNEL_ENTRY_HOOK_CONTEXT *)Memory;
@@ -91,7 +91,7 @@ KernelEntryHook (
           KERNEL_ENTRY_HANDLER_32_SIZE
           );
       } else {
-        FreeKernelHookMemory (
+        FreeXnuSupportMemory (
           Memory,
           MemorySize
           );

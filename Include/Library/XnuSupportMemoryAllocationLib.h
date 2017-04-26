@@ -14,23 +14,23 @@
   limitations under the License.
 **/
 
-#ifndef KERNEL_ENTRY_HOOK_MEMORY_ALLOCATION_LIB_H_
-#define KERNEL_ENTRY_HOOK_MEMORY_ALLOCATION_LIB_H_
+#ifndef XNU_SUPPORT_MEMORY_ALLOCATION_LIB_H_
+#define XNU_SUPPORT_MEMORY_ALLOCATION_LIB_H_
 
 VOID *
-AllocateKernelHookCode (
+AllocateXnuSupportCode (
   IN UINTN  Size
   );
 
 VOID *
-AllocateKernelHookData (
+AllocateXnuSupportData (
   IN UINTN  Size
   );
 
 VOID
-FreeKernelHookMemory (
+FreeXnuSupportMemory (
   IN VOID   *Buffer,
   IN UINTN  Size
   );
 
-#endif // KERNEL_ENTRY_HOOK_MEMORY_ALLOCATION_LIB_H_
+#endif // XNU_SUPPORT_MEMORY_ALLOCATION_LIB_H_

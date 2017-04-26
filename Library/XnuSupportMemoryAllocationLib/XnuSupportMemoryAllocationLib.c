@@ -21,9 +21,10 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/MiscMemoryLib.h>
 
+// InternalAllocateXnuSupportMemory
 STATIC
 VOID *
-InternalAllocateKernelHookMemory (
+InternalAllocateXnuSupportMemory (
   IN UINTN             Size,
   IN  EFI_MEMORY_TYPE  MemoryType
   )
@@ -46,30 +47,37 @@ InternalAllocateKernelHookMemory (
   return Memory;
 }
 
+//AllocateXnuSupportCode
 VOID *
-AllocateKernelHookCode (
+AllocateXnuSupportCode (
   IN UINTN  Size
   )
 {
-  return InternalAllocateKernelHookMemory (
+  ASSERT (Size > 0);
+
+  return InternalAllocateXnuSupportMemory (
            EfiBootServicesCode,
            EFI_SIZE_TO_PAGES (Size)
            );
 }
 
+// AllocateXnuSupportData
 VOID *
-AllocateKernelHookData (
+AllocateXnuSupportData (
   IN UINTN  Size
   )
 {
-  return InternalAllocateKernelHookMemory (
+  ASSERT (Size > 0);
+
+  return InternalAllocateXnuSupportMemory (
            EfiBootServicesData,
            EFI_SIZE_TO_PAGES (Size)
            );
 }
 
+// FreeXnuSupportMemory
 VOID
-FreeKernelHookMemory (
+FreeXnuSupportMemory (
   IN VOID   *Buffer,
   IN UINTN  Size
   )

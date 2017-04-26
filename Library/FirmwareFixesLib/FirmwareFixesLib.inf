@@ -35,11 +35,11 @@
   CacheMaintenanceLib
   CupertinoXnuLib
   KernelEntryNotifyLib
-  KernelEntryHookMemoryAllocationLib
+  XnuSupportMemoryAllocationLib
   KernelEntryNotifyImageLib
 
 [FeaturePcd]
-  gCupertinoSupportPkgTokenSpaceGuid.PcdPreserveOriginalSystemTable                  ## CONSUMES
+  gCupertinoSupportPkgTokenSpaceGuid.PcdPreserveSystemTable                  ## CONSUMES
   gCupertinoSupportPkgTokenSpaceGuid.PcdPartialVirtualAddressMap                     ## CONSUMES
   gCupertinoSupportPkgTokenSpaceGuid.PcdMapVirtualPages                              ## CONSUMES
   gCupertinoSupportPkgTokenSpaceGuid.PcdShrinkMemoryMap                              ## CONSUMES
@@ -54,3 +54,4 @@
   Hibernate.c
   Memory.c
   MemoryMap.c
+  SystemTable.c

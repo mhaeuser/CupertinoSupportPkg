@@ -43,7 +43,7 @@
   #   TRUE  - FirmwareFixesLib will preserve the original EFI System Table.<BR>
   #   FALSE - FirmwareFixesLib will not preserve the original EFI System Table.<BR>
   # @Prompt Preserve the original EFI System Table from being relocated by the Apple booter.
-  gCupertinoSupportPkgTokenSpaceGuid.PcdPreserveOriginalSystemTable|FALSE|BOOLEAN|0x00000000
+  gCupertinoSupportPkgTokenSpaceGuid.PcdPreserveSystemTable|FALSE|BOOLEAN|0x00000000
 
   # TODO: Clean up...
 

@@ -36,7 +36,7 @@
   CacheMaintenanceLib
   CupertinoXnuLib
   KernelEntryNotifyLib
-  KernelEntryHookMemoryAllocationLib
+  XnuSupportMemoryAllocationLib
   KernelEntryNotifyImageLib
 
 [Sources.Common]

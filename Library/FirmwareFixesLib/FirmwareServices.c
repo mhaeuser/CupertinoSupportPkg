@@ -44,6 +44,7 @@
 #include <Library/UefiLib.h>
 #include <Library/VirtualMemoryLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Library/XnuSupportMemoryAllocationLib.h>
 
 #include "FirmwareFixesInternal.h"
 #include "Library/MiscRuntimeLib.h"
