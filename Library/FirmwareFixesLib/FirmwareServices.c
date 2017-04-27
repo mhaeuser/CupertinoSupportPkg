@@ -49,8 +49,8 @@
 #include "FirmwareFixesInternal.h"
 #include "Library/MiscRuntimeLib.h"
 
+// FIRMWARE_SERVICES_PRIVATE_DATA
 typedef struct {
-  BOOLEAN                     Overwritten; // TODO: Make DEBUG-only.
   EFI_ALLOCATE_PAGES          AllocatePages;
   EFI_ALLOCATE_POOL           AllocatePool;
   EFI_EXIT_BOOT_SERVICES      ExitBootServices;
@@ -61,12 +61,14 @@ typedef struct {
   EFI_SET_VIRTUAL_ADDRESS_MAP SetVirtualAddressMap;
 } FIRMWARE_SERVICES_PRIVATE_DATA;
 
-GLOBAL_REMOVE_IF_UNREFERENCED BOOLEAN mXnuPrepareStartSignaledInCurrentBooter = FALSE;
-
+// mDisableMemoryAllocationServices
 STATIC BOOLEAN mDisableMemoryAllocationServices = FALSE;
 
+// mFirmwareServicesOverriden
+STATIC BOOLEAN mFirmwareServicesOverriden = FALSE;
+
+// mPrivateData
 STATIC FIRMWARE_SERVICES_PRIVATE_DATA mPrivateData = {
-  FALSE,
   NULL,
   NULL,
   NULL,
@@ -77,7 +79,7 @@ STATIC FIRMWARE_SERVICES_PRIVATE_DATA mPrivateData = {
   NULL
 };
 
-// HandleProtocolGop
+// InternalHandleProtocol
 /** Queries a handle to determine if it supports a specified protocol.
 
   @param[in]  Handle     The handle being queried.
@@ -96,7 +98,7 @@ STATIC FIRMWARE_SERVICES_PRIVATE_DATA mPrivateData = {
 STATIC
 EFI_STATUS
 EFIAPI
-HandleProtocolGop (
+InternalHandleProtocol (
   IN  EFI_HANDLE  Handle,
   IN  EFI_GUID    *Protocol,
   OUT VOID        **Interface
@@ -201,6 +203,136 @@ XnuPrepareStartNotify (
   )
 {
   // TODO: Call KernelHookLib
+}
+
+// InternalGetMemoryMap
+/** Returns the current memory map.
+
+  @param[in, out] MemoryMapSize      A pointer to the size, in bytes, of the
+                                     MemoryMap buffer.  On input, this is the
+                                     size of the buffer allocated by the
+                                     caller.   On output, it is the size of the
+                                     buffer returned by the firmware if the
+                                     buffer was large enough, or the size of
+                                     the buffer needed to contain the map if
+                                     the buffer was too small.
+  @param[in, out] MemoryMap          A pointer to the buffer in which firmware
+                                     places the current memory map.
+  @param[out]     MapKey             A pointer to the location in which
+                                     firmware returns the key for the current
+                                     memory map.
+  @param[out]     DescriptorSize     A pointer to the location in which
+                                     firmware returns the size, in bytes, of an
+                                     individual EFI_MEMORY_DESCRIPTOR.
+  @param[out]     DescriptorVersion  A pointer to the location in which
+                                     firmware returns the version number
+                                     associated with the EFI_MEMORY_DESCRIPTOR.
+
+  @retval EFI_SUCCESS            The memory map was returned in the MemoryMap
+                                 buffer.
+  @retval EFI_BUFFER_TOO_SMALL   The MemoryMap buffer was too small.  The
+                                 current buffer size needed to hold the memory
+                                 map is returned in MemoryMapSize.
+  @retval EFI_INVALID_PARAMETER  1) MemoryMapSize is NULL.
+                                 2) The MemoryMap buffer is not too small and
+                                    MemoryMap is NULL.
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+InternalGetMemoryMap (
+  IN OUT UINTN                  *MemoryMapSize,
+  IN OUT EFI_MEMORY_DESCRIPTOR  *MemoryMap,
+  OUT    UINTN                  *MapKey,
+  OUT    UINTN                  *DescriptorSize,
+  OUT    UINT32                 *DescriptorVersion
+  )
+{
+  STATIC BOOLEAN NonAppleBooterCall = FALSE;
+
+  EFI_STATUS     Status;
+
+  ASSERT (MemoryMapSize != NULL);
+  ASSERT ((((*MemoryMapSize > 0) ? 1 : 0)
+          ^ ((MemoryMap == NULL) ? 1 : 0)) != 0);
+
+  ASSERT (!EfiAtRuntime ());
+  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
+
+  if (!NonAppleBooterCall) {
+    DEBUG_CODE (
+      ASSERT (!mXnuPrepareStartSignaledInCurrentBooter);
+      );
+
+    NonAppleBooterCall = TRUE;
+
+    EfiNamedEventSignal (&gXnuPrepareStartNamedEventGuid);
+
+    NonAppleBooterCall = FALSE;
+
+    DEBUG_CODE (
+      mXnuPrepareStartSignaledInCurrentBooter = TRUE;
+      );
+  }
+
+  Status = mPrivateData.GetMemoryMap (
+                          MemoryMapSize,
+                          MemoryMap,
+                          MapKey,
+                          DescriptorSize,
+                          DescriptorVersion
+                          );
+
+  if (!NonAppleBooterCall && !EFI_ERROR (Status)) {
+    if (PcdGetBool (PcdShrinkMemoryMap)) {
+      ShrinkMemoryMap (
+        MemoryMapSize,
+        MemoryMap,
+        *DescriptorSize
+        );
+    }
+
+    if (PcdGetBool (PcdFixMemoryMap)) {
+      FixMemoryMap (
+        *MemoryMapSize,
+        MemoryMap,
+        *DescriptorSize
+        );
+    }
+  }
+
+  return Status;
+}
+
+// InternalExitBootServices
+/** Terminates all boot services.
+
+  @param[in] ImageHandle  Handle that identifies the exiting image.
+  @param[in] MapKey       Key to the latest memory map.
+
+  @retval EFI_SUCCESS            Boot services have been terminated.
+  @retval EFI_INVALID_PARAMETER  MapKey is incorrect.
+
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+InternalExitBootServices (
+  IN EFI_HANDLE  ImageHandle,
+  IN UINTN       MapKey
+  )
+{
+  EFI_STATUS Status;
+
+  mDisableMemoryAllocationServices = TRUE;
+
+  Status = mPrivateData.ExitBootServices (ImageHandle, MapKey);
+
+  ASSERT (!EFI_ERROR (Status));
+
+  mDisableMemoryAllocationServices = FALSE;
+
+  return Status;
 }
 
 // InternalAllocatePages
@@ -347,132 +479,6 @@ InternalFreePool (
   return Status;
 }
 
-// InternalGetMemoryMap
-/** Returns the current memory map.
-
-  @param[in, out] MemoryMapSize      A pointer to the size, in bytes, of the
-                                     MemoryMap buffer.  On input, this is the
-                                     size of the buffer allocated by the
-                                     caller.   On output, it is the size of the
-                                     buffer returned by the firmware if the
-                                     buffer was large enough, or the size of
-                                     the buffer needed to contain the map if
-                                     the buffer was too small.
-  @param[in, out] MemoryMap          A pointer to the buffer in which firmware
-                                     places the current memory map.
-  @param[out]     MapKey             A pointer to the location in which
-                                     firmware returns the key for the current
-                                     memory map.
-  @param[out]     DescriptorSize     A pointer to the location in which
-                                     firmware returns the size, in bytes, of an
-                                     individual EFI_MEMORY_DESCRIPTOR.
-  @param[out]     DescriptorVersion  A pointer to the location in which
-                                     firmware returns the version number
-                                     associated with the EFI_MEMORY_DESCRIPTOR.
-
-  @retval EFI_SUCCESS            The memory map was returned in the MemoryMap
-                                 buffer.
-  @retval EFI_BUFFER_TOO_SMALL   The MemoryMap buffer was too small.  The
-                                 current buffer size needed to hold the memory
-                                 map is returned in MemoryMapSize.
-  @retval EFI_INVALID_PARAMETER  1) MemoryMapSize is NULL.
-                                 2) The MemoryMap buffer is not too small and
-                                    MemoryMap is NULL.
-**/
-STATIC
-EFI_STATUS
-EFIAPI
-InternalGetMemoryMap (
-  IN OUT UINTN                  *MemoryMapSize,
-  IN OUT EFI_MEMORY_DESCRIPTOR  *MemoryMap,
-  OUT    UINTN                  *MapKey,
-  OUT    UINTN                  *DescriptorSize,
-  OUT    UINT32                 *DescriptorVersion
-  )
-{
-  STATIC BOOLEAN NonAppleBooterCall = FALSE;
-
-  EFI_STATUS     Status;
-
-  ASSERT (MemoryMapSize != NULL);
-  ASSERT ((((*MemoryMapSize > 0) ? 1 : 0)
-          ^ ((MemoryMap == NULL) ? 1 : 0)) != 0);
-
-  ASSERT (!EfiAtRuntime ());
-  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
-
-  if (!NonAppleBooterCall) {
-    ASSERT (!mXnuPrepareStartSignaledInCurrentBooter);
-
-    NonAppleBooterCall = TRUE;
-
-    EfiNamedEventSignal (&gXnuPrepareStartNamedEventGuid);
-
-    NonAppleBooterCall = FALSE;
-
-    mXnuPrepareStartSignaledInCurrentBooter = TRUE;
-  }
-
-  Status = mPrivateData.GetMemoryMap (
-                          MemoryMapSize,
-                          MemoryMap,
-                          MapKey,
-                          DescriptorSize,
-                          DescriptorVersion
-                          );
-
-  if (!NonAppleBooterCall && !EFI_ERROR (Status)) {
-    if (PcdGetBool (PcdShrinkMemoryMap)) {
-      ShrinkMemoryMap (
-        MemoryMapSize,
-        MemoryMap,
-        *DescriptorSize
-        );
-    }
-
-    if (PcdGetBool (PcdFixMemoryMap)) {
-      FixMemoryMap (
-        *MemoryMapSize,
-        MemoryMap,
-        *DescriptorSize
-        );
-    }
-  }
-
-  return Status;
-}
-
-// InternalExitBootServices
-/** Terminates all boot services.
-
-  @param[in] ImageHandle  Handle that identifies the exiting image.
-  @param[in] MapKey       Key to the latest memory map.
-
-  @retval EFI_SUCCESS            Boot services have been terminated.
-  @retval EFI_INVALID_PARAMETER  MapKey is incorrect.
-
-**/
-STATIC
-EFI_STATUS
-EFIAPI
-InternalExitBootServices (
-  IN EFI_HANDLE  ImageHandle,
-  IN UINTN       MapKey
-  )
-{
-  EFI_STATUS Status;
-
-  mDisableMemoryAllocationServices = TRUE;
-
-  Status = mPrivateData.ExitBootServices (ImageHandle, MapKey);
-
-  ASSERT (!EFI_ERROR (Status));
-
-  mDisableMemoryAllocationServices = FALSE;
-
-  return Status;
-}
-
 VOID
 OverwriteFirmwareServices (
   VOID
@@ -481,7 +487,9 @@ OverwriteFirmwareServices (
   EFI_STATUS Status;
   EFI_TPL    OldTpl;
 
-  ASSERT (!mPrivateData.Overwritten);
+  DEBUG_CODE (
+    ASSERT (!mFirmwareServicesOverriden);
+    );
 
   Status = EFI_SUCCESS;
 
@@ -496,7 +504,7 @@ OverwriteFirmwareServices (
 
   if (PcdGetBool (PcdHandleGop)) {
     mPrivateData.HandleProtocol = gBS->HandleProtocol;
-    gBS->HandleProtocol         = HandleProtocolGop;
+    gBS->HandleProtocol         = InternalHandleProtocol;
   }
 
   if (PcdGetBool (PcdDisableMemoryAllocationServicesBeforeExitBS)) {
@@ -530,7 +538,9 @@ OverwriteFirmwareServices (
 
   EfiRestoreTPL (OldTpl);
 
-  mPrivateData.Overwritten = TRUE;
+  DEBUG_CODE (
+    mFirmwareServicesOverriden = TRUE;
+    );
 }
 
 VOID
@@ -540,7 +550,9 @@ RestoreFirmwareServices (
 {
   EFI_TPL OldTpl;
 
-  ASSERT (mPrivateData.Overwritten);
+  DEBUG_CODE (
+    ASSERT (mFirmwareServicesOverriden);
+    );
 
   OldTpl = EfiRaiseTPL (TPL_HIGH_LEVEL);
 
@@ -568,5 +580,7 @@ RestoreFirmwareServices (
 
   EfiRestoreTPL (OldTpl);
 
-  mPrivateData.Overwritten = FALSE;
+  DEBUG_CODE (
+    mFirmwareServicesOverriden = FALSE;
+    );
 }

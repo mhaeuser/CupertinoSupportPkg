@@ -56,6 +56,10 @@ STATIC FIRMWARE_FIXES_PRIVATE_DATA mPrivateData = {
   NULL
 };
 
+// mXnuPrepareStartSignaledInCurrentBooter
+GLOBAL_REMOVE_IF_UNREFERENCED
+BOOLEAN mXnuPrepareStartSignaledInCurrentBooter = FALSE;
+
 // AppleBooterExitNotify
 /** Invoke a notification event
 
@@ -71,11 +75,11 @@ AppleBooterExitNotify (
   IN VOID       *Context
   )
 {
-  RestoreFirmwareServices ();
-  
   if (PcdGetBool (PcdPreserveSystemTable)) {
     InternalFreeSystemTableCopy ();
   }
+
+  RestoreFirmwareServices ();
 
   EfiCloseEvent (Event);
 }
@@ -95,7 +99,9 @@ AppleBooterStartNotify (
   IN VOID       *Context
   )
 {
-  mXnuPrepareStartSignaledInCurrentBooter = FALSE;
+  DEBUG_CODE (
+    mXnuPrepareStartSignaledInCurrentBooter = FALSE;
+    );
 
   if (PcdGetBool (PcdPreserveSystemTable)) {
     InternalOverrideSystemTable (mPrivateData.AppleBooterHandleRegistration);
