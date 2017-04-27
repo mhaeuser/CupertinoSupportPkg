@@ -27,7 +27,7 @@
   POSSIBILITY OF SUCH DAMAGE.
 **/
 
-#include <Uefi.h>
+#include <AppleUefi.h>
 
 #include <Guid/AppleBooterExitNamedEvent.h>
 #include <Guid/AppleOSLoaded.h>
@@ -94,12 +94,13 @@ InternalStartImage (
     FilePath = MiscFileDevicePathToText (LoadedImage->FilePath, &FilePathSize);
 
     if (FilePath != NULL) {
-      Index  = ((FilePathSize - sizeof (L"boot.efi")) / sizeof (FilePath[0]));
-      Result = CompareMem (
-                 (VOID *)&FilePath[Index],
-                 (VOID *)L"boot.efi",
-                 sizeof (L"boot.efi")
-                 );
+      FilePathSize -= sizeof (APPLE_BOOTER_FILE_NAME);
+      Index         = (FilePathSize / sizeof (FilePath[0]));
+      Result        = CompareMem (
+                        (VOID *)&FilePath[Index],
+                        (VOID *)APPLE_BOOTER_FILE_NAME,
+                        sizeof (APPLE_BOOTER_FILE_NAME)
+                        );
 
       FreePool ((VOID *)FilePath);
 
@@ -180,7 +181,7 @@ AppleBooterNotifyUnload (
   OldTpl = EfiRaiseTPL (TPL_HIGH_LEVEL);
 
   gBS->StartImage = InternalStartImage;
-  mStartImage = gBS->StartImage;
+  mStartImage     = gBS->StartImage;
 
   UPDATE_EFI_TABLE_HEADER_CRC32 (gBS->Hdr);
 
