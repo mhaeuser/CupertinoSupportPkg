@@ -38,8 +38,9 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
-#include <Library/MemoryAllocationLib.h>
 #include <Library/EfiBootServicesLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/MiscRuntimeLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiLib.h>
 #include <Library/VirtualMemoryLib.h>
@@ -47,7 +48,6 @@
 #include <Library/XnuSupportMemoryAllocationLib.h>
 
 #include "FirmwareFixesInternal.h"
-#include "Library/MiscRuntimeLib.h"
 
 // FIRMWARE_SERVICES_PRIVATE_DATA
 typedef struct {
@@ -479,8 +479,9 @@ InternalFreePool (
   return Status;
 }
 
+// OverrideFirmwareServices
 VOID
-OverwriteFirmwareServices (
+OverrideFirmwareServices (
   VOID
   )
 {
@@ -543,6 +544,7 @@ OverwriteFirmwareServices (
     );
 }
 
+// RestoreFirmwareServices
 VOID
 RestoreFirmwareServices (
   VOID

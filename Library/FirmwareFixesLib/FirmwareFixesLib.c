@@ -107,7 +107,7 @@ AppleBooterStartNotify (
     InternalOverrideSystemTable (mPrivateData.AppleBooterHandleRegistration);
   }
 
-  OverwriteFirmwareServices ();
+  OverrideFirmwareServices ();
  
   EfiNamedEventListen (
     &gAppleBooterExitNamedEventGuid,

@@ -53,9 +53,9 @@ InternalFreeSystemTableCopy (
   VOID
   );
 
-// OverwriteFirmwareServices
+// OverrideFirmwareServices
 VOID
-OverwriteFirmwareServices (
+OverrideFirmwareServices (
   VOID
   );
 
