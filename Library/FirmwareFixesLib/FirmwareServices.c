@@ -32,20 +32,16 @@
 #include <Guid/XnuPrepareStartNamedEvent.h>
 
 #include <Protocol/GraphicsOutput.h>
-#include <Protocol/LoadedImage.h>
 
-#include <Library/UefiBootServicesTableLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
-#include <Library/DevicePathLib.h>
 #include <Library/EfiBootServicesLib.h>
-#include <Library/MemoryAllocationLib.h>
 #include <Library/MiscRuntimeLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiLib.h>
-#include <Library/VirtualMemoryLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
-#include <Library/XnuSupportMemoryAllocationLib.h>
+#include <Library/VirtualMemoryLib.h>
 
 #include "FirmwareFixesInternal.h"
 

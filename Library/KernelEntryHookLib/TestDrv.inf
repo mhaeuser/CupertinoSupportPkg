@@ -1,0 +1,21 @@
+[Defines]
+  INF_VERSION = 0x00010005
+  BASE_NAME   = TestDrv
+  MODULE_TYPE = UEFI_DRIVER
+  ENTRY_POINT = Start
+
+#
+#  VALID_ARCHITECTURES           = IA32 X64
+#
+
+[Sources]
+  TestDrv.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  CupertinoSupportPkg/CupertinoSupportPkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  KernelEntryHookLib
+  FirmwareFixesLib

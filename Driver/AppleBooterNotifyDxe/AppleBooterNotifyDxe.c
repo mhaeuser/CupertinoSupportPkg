@@ -31,7 +31,6 @@
 
 #include <Guid/AppleBooterExitNamedEvent.h>
 #include <Guid/AppleOSLoaded.h>
-#include <Guid/XnuPrepareStartNamedEvent.h>
 
 #include <Protocol/AppleBooterHandle.h>
 #include <Protocol/LoadedImage.h>

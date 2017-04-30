@@ -30,16 +30,13 @@
 #include <Uefi.h>
 
 #include <Guid/AppleBooterExitNamedEvent.h>
-#include <Guid/XnuPrepareStartNamedEvent.h>
 
 #include <Protocol/AppleBooterHandle.h>
 
 #include <Library/DebugLib.h>
 #include <Library/EfiBootServicesLib.h>
-#include <Library/MemoryAllocationLib.h>
 #include <Library/MiscEventLib.h>
 #include <Library/PcdLib.h>
-#include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 
 #include "FirmwareFixesInternal.h"

@@ -17,7 +17,6 @@
 #include <Uefi.h>
 
 #include <Protocol/AppleBootPolicy.h>
-#include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 
 #include <Library/DebugLib.h>
