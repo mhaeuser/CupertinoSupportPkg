@@ -17,9 +17,6 @@
 #include <AppleUefi.h>
 #include <PiDxe.h>
 
-#include <IndustryStandard/AppleMachoImage.h>
-#include <IndustryStandard/AppleFatBinaryImage.h>
-
 #include <Library/CupertinoFatBinaryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DxeServicesLib.h>
@@ -27,7 +24,7 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
-// gLoadImage
+// mLoadImage
 STATIC EFI_IMAGE_LOAD mLoadImage;
 
 // InternalLoadImage
@@ -85,7 +82,9 @@ InternalLoadImage (
   VOID       *OriginalBuffer;
   UINT32     AuthenticationStatus;
 
-  // TODO: ASSERT for SourceBuffer/Size
+  ASSERT ((((SourceSize != 0) ? 1 : 0)
+         ^ ((SourceBuffer == NULL) ? 1 : 0)) != 0);
+
   ASSERT (ImageHandle != NULL);
 
   OriginalBuffer = NULL;

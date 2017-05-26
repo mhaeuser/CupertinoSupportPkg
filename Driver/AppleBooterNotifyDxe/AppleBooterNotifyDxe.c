@@ -82,6 +82,7 @@ InternalStartImage (
   BOOLEAN                   AppleOs;
 
   ASSERT (ImageHandle != NULL);
+  ASSERT ((((ExitDataSize != 0) ? 1 : 0) ^ ((ExitData == NULL) ? 1 : 0)) != 0);
 
   Status = EfiHandleProtocol (
              ImageHandle,

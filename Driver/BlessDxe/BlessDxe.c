@@ -84,6 +84,11 @@ InternalLoadImage (
   EFI_DEV_PATH_PTR           DevicePathPtr;
   APPLE_BOOT_POLICY_PROTOCOL *AppleBootPolicy;
 
+  ASSERT ((((SourceSize != 0) ? 1 : 0)
+         ^ ((SourceBuffer == NULL) ? 1 : 0)) != 0);
+
+  ASSERT (ImageHandle != NULL);
+
   if (BootPolicy && (SourceBuffer == NULL) && (DevicePath != NULL)) {
     Status = EfiLocateProtocol (
                &gAppleBootPolicyProtocolGuid,
