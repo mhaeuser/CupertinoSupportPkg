@@ -144,7 +144,7 @@ InternalStartImage (
 EFI_STATUS
 EFIAPI
 AppleBooterNotifyMain (
-  IN EFI_HANDLE        *imageHandle,
+  IN EFI_HANDLE        *ImageHandle,
   IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {

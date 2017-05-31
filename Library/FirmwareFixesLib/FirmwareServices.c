@@ -45,35 +45,35 @@
 
 #include "FirmwareFixesInternal.h"
 
-// FIRMWARE_SERVICES_PRIVATE_DATA
-typedef struct {
-  EFI_ALLOCATE_PAGES          AllocatePages;
-  EFI_ALLOCATE_POOL           AllocatePool;
-  EFI_EXIT_BOOT_SERVICES      ExitBootServices;
-  EFI_FREE_PAGES              FreePages;
-  EFI_FREE_POOL               FreePool;
-  EFI_GET_MEMORY_MAP          GetMemoryMap;
-  EFI_HANDLE_PROTOCOL         HandleProtocol;
-  EFI_SET_VIRTUAL_ADDRESS_MAP SetVirtualAddressMap;
-} FIRMWARE_SERVICES_PRIVATE_DATA;
+// mAllocatePages
+STATIC EFI_ALLOCATE_PAGES mAllocatePages = NULL;
+
+// mAllocatePool
+STATIC EFI_ALLOCATE_POOL mAllocatePool = NULL;
+
+// mExitBootServices
+STATIC EFI_EXIT_BOOT_SERVICES mExitBootServices = NULL;
+
+// mFreePages
+STATIC EFI_FREE_PAGES mFreePages = NULL;
+
+// mFreePool
+STATIC EFI_FREE_POOL mFreePool = NULL;
+
+// mGetMemoryMap
+STATIC EFI_GET_MEMORY_MAP mGetMemoryMap = NULL;
+
+// mHandleProtocol
+STATIC EFI_HANDLE_PROTOCOL mHandleProtocol = NULL;
+
+// mSetVirtualAddressMap
+STATIC EFI_SET_VIRTUAL_ADDRESS_MAP mSetVirtualAddressMap = NULL;
 
 // mDisableMemoryAllocationServices
 STATIC BOOLEAN mDisableMemoryAllocationServices = FALSE;
 
 // mFirmwareServicesOverriden
 STATIC BOOLEAN mFirmwareServicesOverriden = FALSE;
-
-// mPrivateData
-STATIC FIRMWARE_SERVICES_PRIVATE_DATA mPrivateData = {
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL
-};
 
 // InternalHandleProtocol
 /** Queries a handle to determine if it supports a specified protocol.
@@ -108,7 +108,7 @@ InternalHandleProtocol (
   ASSERT (!EfiAtRuntime ());
   ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
 
-  Status = mPrivateData.HandleProtocol (Handle, Protocol, Interface);
+  Status = mHandleProtocol (Handle, Protocol, Interface);
 
   if ((Status == EFI_UNSUPPORTED)
    && (Handle == gST->ConsoleOutHandle)
@@ -119,7 +119,7 @@ InternalHandleProtocol (
   return Status;
 }
 
-// MoSetVirtualAddressMap
+// InternalSetVirtualAddressMap
 /** Changes the runtime addressing mode of EFI firmware from physical to
     virtual.
 
@@ -146,7 +146,7 @@ InternalHandleProtocol (
 STATIC
 EFI_STATUS
 EFIAPI
-MoSetVirtualAddressMap (
+InternalSetVirtualAddressMap (
   IN UINTN                  MemoryMapSize,
   IN UINTN                  DescriptorSize,
   IN UINT32                 DescriptorVersion,
@@ -175,7 +175,7 @@ MoSetVirtualAddressMap (
       );
   }
 
-  return mPrivateData.SetVirtualAddressMap (
+  return mSetVirtualAddressMap (
                              MemoryMapSize,
                              DescriptorSize,
                              DescriptorVersion,
@@ -183,7 +183,8 @@ MoSetVirtualAddressMap (
                              );
 }
 
-// XnuPrepareStartNotify
+#if 0
+// InternalXnuPrepareStartNotify
 /** Invoke a notification event
 
   @param[in] Event    Event whose notification function is being invoked.
@@ -193,13 +194,14 @@ MoSetVirtualAddressMap (
 STATIC
 VOID
 EFIAPI
-XnuPrepareStartNotify (
+InternalXnuPrepareStartNotify (
   IN EFI_EVENT  Event,
   IN VOID       *Context
   )
 {
   // TODO: Call KernelHookLib
 }
+#endif
 
 // InternalGetMemoryMap
 /** Returns the current memory map.
@@ -271,7 +273,7 @@ InternalGetMemoryMap (
       );
   }
 
-  Status = mPrivateData.GetMemoryMap (
+  Status = mGetMemoryMap (
                           MemoryMapSize,
                           MemoryMap,
                           MapKey,
@@ -322,7 +324,7 @@ InternalExitBootServices (
 
   mDisableMemoryAllocationServices = TRUE;
 
-  Status = mPrivateData.ExitBootServices (ImageHandle, MapKey);
+  Status = mExitBootServices (ImageHandle, MapKey);
 
   ASSERT (!EFI_ERROR (Status));
 
@@ -372,7 +374,7 @@ InternalAllocatePages (
   Status = EFI_OUT_OF_RESOURCES;
 
   if (!mDisableMemoryAllocationServices) {
-    Status = mPrivateData.AllocatePages (Type, MemoryType, Pages, Memory);
+    Status = mAllocatePages (Type, MemoryType, Pages, Memory);
   }
 
   return Status;
@@ -403,7 +405,7 @@ InternalFreePages (
   Status = EFI_SUCCESS;
 
   if (!mDisableMemoryAllocationServices) {
-    Status = mPrivateData.FreePages (Memory, Pages);
+    Status = mFreePages (Memory, Pages);
   }
 
   return Status;
@@ -442,7 +444,7 @@ InternalAllocatePool (
   Status = EFI_OUT_OF_RESOURCES;
 
   if (!mDisableMemoryAllocationServices) {
-    Status = mPrivateData.AllocatePool (PoolType, Size, Buffer);
+    Status = mAllocatePool (PoolType, Size, Buffer);
   }
 
   return Status;
@@ -469,7 +471,7 @@ InternalFreePool (
   Status = EFI_SUCCESS;
 
   if (!mDisableMemoryAllocationServices) {
-    Status = mPrivateData.FreePool (Buffer);
+    Status = mFreePool (Buffer);
   }
 
   return Status;
@@ -496,41 +498,41 @@ OverrideFirmwareServices (
 
   OldTpl = EfiRaiseTPL (TPL_HIGH_LEVEL);
 
-  mPrivateData.GetMemoryMap = gBS->GetMemoryMap;
-  gBS->GetMemoryMap         = InternalGetMemoryMap;
+  mGetMemoryMap     = gBS->GetMemoryMap;
+  gBS->GetMemoryMap = InternalGetMemoryMap;
 
   if (PcdGetBool (PcdHandleGop)) {
-    mPrivateData.HandleProtocol = gBS->HandleProtocol;
-    gBS->HandleProtocol         = InternalHandleProtocol;
+    mHandleProtocol     = gBS->HandleProtocol;
+    gBS->HandleProtocol = InternalHandleProtocol;
   }
 
   if (PcdGetBool (PcdDisableMemoryAllocationServicesBeforeExitBS)) {
-    mPrivateData.AllocatePages = gBS->AllocatePages;
-    gBS->AllocatePages         = InternalAllocatePages;
+    mAllocatePages     = gBS->AllocatePages;
+    gBS->AllocatePages = InternalAllocatePages;
 
-    mPrivateData.AllocatePool = gBS->AllocatePool;
-    gBS->AllocatePool         = InternalAllocatePool;
+    mAllocatePool     = gBS->AllocatePool;
+    gBS->AllocatePool = InternalAllocatePool;
 
-    mPrivateData.ExitBootServices = gBS->ExitBootServices;
-    gBS->ExitBootServices         = InternalExitBootServices;
+    mExitBootServices     = gBS->ExitBootServices;
+    gBS->ExitBootServices = InternalExitBootServices;
 
-    mPrivateData.FreePages = gBS->FreePages;
-    gBS->FreePages         = InternalFreePages;
+    mFreePages     = gBS->FreePages;
+    gBS->FreePages = InternalFreePages;
 
-    mPrivateData.FreePool = gBS->FreePool;
-    gBS->FreePool         = InternalFreePool;
+    mFreePool     = gBS->FreePool;
+    gBS->FreePool = InternalFreePool;
   }
 
   UPDATE_EFI_TABLE_HEADER_CRC32 (gBS->Hdr);
 
   if (PcdGetBool (PcdPartialVirtualAddressMap)
    || (PcdGetBool (PcdMapVirtualPages) && !EFI_ERROR (Status))) {
-    mPrivateData.SetVirtualAddressMap = gRT->SetVirtualAddressMap;
-    gRT->SetVirtualAddressMap         = MoSetVirtualAddressMap;
+    mSetVirtualAddressMap = gRT->SetVirtualAddressMap;
+    gRT->SetVirtualAddressMap         = InternalSetVirtualAddressMap;
 
     UPDATE_EFI_TABLE_HEADER_CRC32 (gRT->Hdr);
   } else {
-    mPrivateData.SetVirtualAddressMap = NULL;
+    mSetVirtualAddressMap = NULL;
   }
 
   EfiRestoreTPL (OldTpl);
@@ -554,24 +556,24 @@ RestoreFirmwareServices (
 
   OldTpl = EfiRaiseTPL (TPL_HIGH_LEVEL);
 
-  gBS->GetMemoryMap = mPrivateData.GetMemoryMap;
+  gBS->GetMemoryMap = mGetMemoryMap;
 
   if (PcdGetBool (PcdHandleGop)) {
-    gBS->HandleProtocol = mPrivateData.HandleProtocol;
+    gBS->HandleProtocol = mHandleProtocol;
   }
 
   if (PcdGetBool (PcdDisableMemoryAllocationServicesBeforeExitBS)) {
-    gBS->AllocatePages    = mPrivateData.AllocatePages;
-    gBS->AllocatePool     = mPrivateData.AllocatePool;
-    gBS->ExitBootServices = mPrivateData.ExitBootServices;
-    gBS->FreePages        = mPrivateData.FreePages;
-    gBS->FreePool         = mPrivateData.FreePool;
+    gBS->AllocatePages    = mAllocatePages;
+    gBS->AllocatePool     = mAllocatePool;
+    gBS->ExitBootServices = mExitBootServices;
+    gBS->FreePages        = mFreePages;
+    gBS->FreePool         = mFreePool;
   }
 
   UPDATE_EFI_TABLE_HEADER_CRC32 (gBS->Hdr);
 
-  if (mPrivateData.SetVirtualAddressMap != NULL) {
-    gRT->SetVirtualAddressMap = mPrivateData.SetVirtualAddressMap;
+  if (mSetVirtualAddressMap != NULL) {
+    gRT->SetVirtualAddressMap = mSetVirtualAddressMap;
 
     UPDATE_EFI_TABLE_HEADER_CRC32 (gRT->Hdr);
   }

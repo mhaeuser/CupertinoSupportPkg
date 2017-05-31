@@ -17,6 +17,9 @@
 #include <AppleUefi.h>
 #include <PiDxe.h>
 
+#include <IndustryStandard/AppleMachoImage.h>
+#include <IndustryStandard/AppleFatBinaryImage.h>
+
 #include <Library/CupertinoFatBinaryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DxeServicesLib.h>
