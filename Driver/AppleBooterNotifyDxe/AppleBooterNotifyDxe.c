@@ -141,10 +141,11 @@ InternalStartImage (
   return Status;
 }
 
+// AppleBooterNotifyMain
 EFI_STATUS
 EFIAPI
 AppleBooterNotifyMain (
-  IN EFI_HANDLE        *ImageHandle,
+  IN EFI_HANDLE        ImageHandle,
   IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
@@ -166,6 +167,7 @@ AppleBooterNotifyMain (
   return EFI_SUCCESS;
 }
 
+// AppleBooterNotifyUnload
 EFI_STATUS
 EFIAPI
 AppleBooterNotifyUnload (
