@@ -133,9 +133,9 @@ MapVirtualPages (
   IN EFI_MEMORY_DESCRIPTOR  *VirtualMap
   )
 {
-  EFI_MEMORY_DESCRIPTOR      *MemoryDescriptor;
-  PAGE_MAP_AND_DIRECTORY_PTR *PageTable;
-  UINTN                      Index;
+  EFI_MEMORY_DESCRIPTOR *MemoryDescriptor;
+  VOID                  *PageTable;
+  UINTN                  Index;
 
   ASSERT (MemoryMapSize > 0);
   ASSERT (DescriptorSize > 0);
@@ -145,10 +145,10 @@ MapVirtualPages (
 
   MemoryDescriptor = VirtualMap;
 
-  PageTable = GetCurrentPageTable (NULL);
+  PageTable = VirtualMemoryGetPageTable (NULL);
 
   for (Index = 0; Index < (MemoryMapSize / DescriptorSize); ++Index) {
-    VmMapVirtualPages (
+    VirtualMemoryMapVirtualPages (
       PageTable,
       MemoryDescriptor->VirtualStart,
       MemoryDescriptor->NumberOfPages,
@@ -161,7 +161,7 @@ MapVirtualPages (
                          );
   }
 
-  VmFlashCaches ();
+  VirtualMemoryFlashCaches ();
 }
 
 // ProtectRtDataFromRelocation

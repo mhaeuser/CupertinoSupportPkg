@@ -1,13 +1,5 @@
 /** @file
-  References:
-    1) IA-32 Intel(R) Architecture Software Developer's Manual Volume 1:Basic Architecture, Intel
-    2) IA-32 Intel(R) Architecture Software Developer's Manual Volume 2:Instruction Set Reference, Intel
-    3) IA-32 Intel(R) Architecture Software Developer's Manual Volume 3:System Programmer's Guide, Intel
-    4) AMD64 Architecture Programmer's Manual Volume 2: System Programming
-
-  Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.
-  Copyright (C) 2012, Damir Mažar.  All rights reserved.
-  Portions Copyright (C) 2015 - 2017, CupertinoNet.  All rights reserved.
+  Copyright (C) 2017, CupertinoNet.  All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions
@@ -34,47 +26,21 @@
   POSSIBILITY OF SUCH DAMAGE.
 **/
 
-#ifndef VIRTUAL_MEMORY_LIB_H_
-#define VIRTUAL_MEMORY_LIB_H_
+#ifndef VIRTUAL_MEMORY_INTERNAL_H_
+#define VIRTUAL_MEMORY_INTERNAL_H_
 
-// VirtualMemoryConstructor
+// VmInternalMapVirtualPage
 BOOLEAN
-VirtualMemoryConstructor (
-  VOID
-  );
-
-// VirtualMemoryDestructor
-VOID
-VirtualMemoryDestructor (
-  VOID
-  );
-
-// VirtualMemoryGetPageTable
-VOID *
-VirtualMemoryGetPageTable (
-  IN OUT UINTN  *Flags OPTIONAL
-  );
-
-// VirtualMemoryGetPhysicalAddress
-EFI_PHYSICAL_ADDRESS
-VirtualMemoryGetPhysicalAddress (
-  IN VOID                 *PageTable,
-  IN EFI_VIRTUAL_ADDRESS  VirtualAddress
-  );
-
-// VirtualMemoryMapVirtualPages
-BOOLEAN
-VirtualMemoryMapVirtualPages (
+VmInternalMapVirtualPage (
   IN VOID                  *PageTable,
   IN EFI_VIRTUAL_ADDRESS   VirtualAddress,
-  IN UINT64                NumberOfPages,
   IN EFI_PHYSICAL_ADDRESS  PhysicalAddress
   );
 
-// VirtualMemoryFlashCaches
-VOID
-VirtualMemoryFlashCaches (
-  VOID
+// VmInternalAllocatePages
+VOID *
+VmInternalAllocatePages (
+  IN UINTN  NumberOfPages
   );
 
-#endif // VIRTUAL_MEMORY_LIB_H_
+#endif // VIRTUAL_MEMORY_INTERNAL_H_

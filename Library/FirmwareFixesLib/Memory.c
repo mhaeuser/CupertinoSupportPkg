@@ -30,13 +30,13 @@
 
 #include <Uefi.h>
 
-#include <MiscBase.h>
-
 #include <Library/CupertinoXnuLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/MiscMemoryLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
+
+#include "FirmwareFixesInternal.h"
 
 // FreeLowMemory
 /** Free all memory pages in the XNU Kernel Address Space.
