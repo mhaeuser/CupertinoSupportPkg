@@ -37,6 +37,7 @@
   MemoryAllocationLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
+  UefiLib
 
 [Protocols]
   gEfiSimpleFileSystemProtocolGuid  ## CONSUMES

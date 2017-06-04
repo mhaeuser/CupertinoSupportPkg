@@ -24,8 +24,10 @@
 #include <Library/DebugLib.h>
 #include <Library/DxeServicesLib.h>
 #include <Library/EfiBootServicesLib.h>
+#include <Library/MiscRuntimeLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiLib.h>
 
 // mLoadImage
 STATIC EFI_IMAGE_LOAD mLoadImage;

@@ -40,6 +40,7 @@
 #include <Library/EfiBootServicesLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/MiscDevicePathLib.h>
+#include <Library/MiscRuntimeLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
