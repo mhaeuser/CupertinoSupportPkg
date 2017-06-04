@@ -85,10 +85,15 @@ InternalLoadImage (
   VOID       *OriginalBuffer;
   UINT32     AuthenticationStatus;
 
+  ASSERT (ParentImageHandle != NULL);
+  ASSERT (DevicePath != NULL);
   ASSERT ((((SourceSize != 0) ? 1 : 0)
-         ^ ((SourceBuffer == NULL) ? 1 : 0)) != 0);
+    ^ ((SourceBuffer == NULL) ? 1 : 0)) != 0);
 
   ASSERT (ImageHandle != NULL);
+  ASSERT (!EfiAtRuntime ());
+  ASSERT (EfiGetCurrentTpl () < TPL_CALLBACK);
+  ASSERT (mLoadImage != NULL);
 
   OriginalBuffer = NULL;
 

@@ -45,6 +45,9 @@
 
 #include "FirmwareFixesInternal.h"
 
+// mFirmwareServicesOverriden
+STATIC BOOLEAN mFirmwareServicesOverriden = FALSE;
+
 // mAllocatePages
 STATIC EFI_ALLOCATE_PAGES mAllocatePages = NULL;
 
@@ -71,9 +74,6 @@ STATIC EFI_SET_VIRTUAL_ADDRESS_MAP mSetVirtualAddressMap = NULL;
 
 // mDisableMemoryAllocationServices
 STATIC BOOLEAN mDisableMemoryAllocationServices = FALSE;
-
-// mFirmwareServicesOverriden
-STATIC BOOLEAN mFirmwareServicesOverriden = FALSE;
 
 // InternalHandleProtocol
 /** Queries a handle to determine if it supports a specified protocol.
@@ -176,11 +176,11 @@ InternalSetVirtualAddressMap (
   }
 
   return mSetVirtualAddressMap (
-                             MemoryMapSize,
-                             DescriptorSize,
-                             DescriptorVersion,
-                             VirtualMap
-                             );
+           MemoryMapSize,
+           DescriptorSize,
+           DescriptorVersion,
+           VirtualMap
+           );
 }
 
 #if 0
@@ -256,6 +256,7 @@ InternalGetMemoryMap (
 
   ASSERT (!EfiAtRuntime ());
   ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
+  ASSERT (mGetMemoryMap != NULL);
 
   if (!NonAppleBooterCall) {
     DEBUG_CODE (
@@ -274,12 +275,12 @@ InternalGetMemoryMap (
   }
 
   Status = mGetMemoryMap (
-                          MemoryMapSize,
-                          MemoryMap,
-                          MapKey,
-                          DescriptorSize,
-                          DescriptorVersion
-                          );
+             MemoryMapSize,
+             MemoryMap,
+             MapKey,
+             DescriptorSize,
+             DescriptorVersion
+             );
 
   if (!NonAppleBooterCall && !EFI_ERROR (Status)) {
     if (PcdGetBool (PcdShrinkMemoryMap)) {
@@ -326,9 +327,7 @@ InternalExitBootServices (
 
   Status = mExitBootServices (ImageHandle, MapKey);
 
-  ASSERT (!EFI_ERROR (Status));
-
-  mDisableMemoryAllocationServices = FALSE;
+  ASSERT_EFI_ERROR (Status);
 
   return Status;
 }
@@ -371,10 +370,36 @@ InternalAllocatePages (
 {
   EFI_STATUS Status;
 
+  ASSERT ((Type >= AllocateAnyPages) && (Type < MaxAllocateType));
+  ASSERT ((MemoryType < EfiMaxMemoryType) || (MemoryType > 0x6FFFFFFF));
+  ASSERT (MemoryType != EfiPersistentMemory);
+  ASSERT (Pages > 0);
+  ASSERT (Memory != NULL);
+  ASSERT ((*Memory != 0) || (Type == AllocateAnyPages));
+
+  ASSERT ((Type != AllocateMaxAddress)
+      || ((EFI_PAGES_TO_SIZE (Pages) - 1) <= (UINTN)*Memory));
+
+  ASSERT ((Type != AllocateAddress)
+      || (EFI_PAGES_TO_SIZE (Pages) - 1) <= (MAX_ADDRESS - (UINTN)*Memory));
+
+  ASSERT (!EfiAtRuntime ());
+  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
+  ASSERT (mAllocatePages != NULL);
+
   Status = EFI_OUT_OF_RESOURCES;
 
   if (!mDisableMemoryAllocationServices) {
     Status = mAllocatePages (Type, MemoryType, Pages, Memory);
+
+    if (Status != EFI_OUT_OF_RESOURCES) {
+      ASSERT_EFI_ERROR (Status);
+    }
+  } else {
+    DEBUG ((
+      DEBUG_VERBOSE,
+      "Memory allocation function called while disabled.\n"
+      ));
   }
 
   return Status;
@@ -402,10 +427,24 @@ InternalFreePages (
 {
   EFI_STATUS Status;
 
+  ASSERT (Memory != 0);
+  ASSERT (ALIGN_VALUE (Memory, EFI_PAGE_SIZE) == Memory);
+  ASSERT (Pages > 0);
+  ASSERT (!EfiAtRuntime ());
+  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
+  ASSERT (mFreePages != NULL);
+
   Status = EFI_SUCCESS;
 
   if (!mDisableMemoryAllocationServices) {
     Status = mFreePages (Memory, Pages);
+
+    ASSERT_EFI_ERROR (Status);
+  } else {
+    DEBUG ((
+      DEBUG_VERBOSE,
+      "Memory allocation function called while disabled.\n"
+      ));
   }
 
   return Status;
@@ -441,10 +480,27 @@ InternalAllocatePool (
 {
   EFI_STATUS Status;
 
+  ASSERT ((PoolType < EfiMaxMemoryType) || (PoolType > 0x6FFFFFFF));
+  ASSERT (PoolType != EfiPersistentMemory);
+  ASSERT (Size > 0);
+  ASSERT (Buffer != NULL);
+  ASSERT (!EfiAtRuntime ());
+  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
+  ASSERT (mAllocatePool != NULL);
+
   Status = EFI_OUT_OF_RESOURCES;
 
   if (!mDisableMemoryAllocationServices) {
     Status = mAllocatePool (PoolType, Size, Buffer);
+
+    if (Status != EFI_OUT_OF_RESOURCES) {
+      ASSERT_EFI_ERROR (Status);
+    }
+  } else {
+    DEBUG ((
+      DEBUG_VERBOSE,
+      "Memory allocation function called while disabled.\n"
+      ));
   }
 
   return Status;
@@ -468,10 +524,22 @@ InternalFreePool (
 {
   EFI_STATUS Status;
 
+  ASSERT (Buffer != NULL);
+  ASSERT (!EfiAtRuntime ());
+  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
+  ASSERT (mFreePool != NULL);
+
   Status = EFI_SUCCESS;
 
   if (!mDisableMemoryAllocationServices) {
     Status = mFreePool (Buffer);
+
+    ASSERT_EFI_ERROR (Status);
+  } else {
+    DEBUG ((
+      DEBUG_VERBOSE,
+      "Memory allocation function called while disabled.\n"
+      ));
   }
 
   return Status;
@@ -483,17 +551,17 @@ OverrideFirmwareServices (
   VOID
   )
 {
-  EFI_STATUS Status;
-  EFI_TPL    OldTpl;
+  BOOLEAN Result;
+  EFI_TPL OldTpl;
 
   DEBUG_CODE (
     ASSERT (!mFirmwareServicesOverriden);
     );
 
-  Status = EFI_SUCCESS;
+  Result = FALSE;
 
   if (PcdGetBool (PcdMapVirtualPages)) {
-    Status = VmAllocateMemoryPool ();
+    Result = VirtualMemoryConstructor ();
   }
 
   OldTpl = EfiRaiseTPL (TPL_HIGH_LEVEL);
@@ -525,10 +593,9 @@ OverrideFirmwareServices (
 
   UPDATE_EFI_TABLE_HEADER_CRC32 (gBS->Hdr);
 
-  if (PcdGetBool (PcdPartialVirtualAddressMap)
-   || (PcdGetBool (PcdMapVirtualPages) && !EFI_ERROR (Status))) {
-    mSetVirtualAddressMap = gRT->SetVirtualAddressMap;
-    gRT->SetVirtualAddressMap         = InternalSetVirtualAddressMap;
+  if (PcdGetBool (PcdPartialVirtualAddressMap) || Result) {
+    mSetVirtualAddressMap     = gRT->SetVirtualAddressMap;
+    gRT->SetVirtualAddressMap = InternalSetVirtualAddressMap;
 
     UPDATE_EFI_TABLE_HEADER_CRC32 (gRT->Hdr);
   } else {

@@ -83,6 +83,9 @@ InternalStartImage (
 
   ASSERT (ImageHandle != NULL);
   ASSERT ((((ExitDataSize != 0) ? 1 : 0) ^ ((ExitData == NULL) ? 1 : 0)) != 0);
+  ASSERT (!EfiAtRuntime ());
+  ASSERT (EfiGetCurrentTpl () <= TPL_CALLBACK);
+  ASSERT (gBS->StartImage != NULL);
 
   Status = EfiHandleProtocol (
              ImageHandle,

@@ -34,7 +34,7 @@
 #include <Library/DebugLib.h>
 
 // FixHibernateWake
-UINTN
+VOID
 FixHibernateWake (
   IN UINTN  ImageHeaderPage
   )
@@ -67,6 +67,4 @@ FixHibernateWake (
 
     Handoff = NEXT_IO_HIBERNATE_HANDOFF (Handoff);
   }
-
-  return ImageHeaderPage;
 }

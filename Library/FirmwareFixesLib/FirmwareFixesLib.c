@@ -53,11 +53,14 @@ STATIC FIRMWARE_FIXES_PRIVATE_DATA mPrivateData = {
   NULL
 };
 
+// mAppleBooterLevel
+STATIC UINTN mAppleBooterLevel = 0;
+
 // mXnuPrepareStartSignaledInCurrentBooter
 GLOBAL_REMOVE_IF_UNREFERENCED
 BOOLEAN mXnuPrepareStartSignaledInCurrentBooter = FALSE;
 
-// AppleBooterExitNotify
+// InternalAppleBooterExitNotify
 /** Invoke a notification event
 
   @param[in] Event    Event whose notification function is being invoked.
@@ -67,21 +70,25 @@ BOOLEAN mXnuPrepareStartSignaledInCurrentBooter = FALSE;
 STATIC
 VOID
 EFIAPI
-AppleBooterExitNotify (
+InternalAppleBooterExitNotify (
   IN EFI_EVENT  Event,
   IN VOID       *Context
   )
 {
-  if (PcdGetBool (PcdPreserveSystemTable)) {
-    InternalFreeSystemTableCopy ();
+  --mAppleBooterLevel;
+
+  if (mAppleBooterLevel == 0) {
+    if (PcdGetBool (PcdPreserveSystemTable)) {
+      InternalFreeSystemTableCopy ();
+    }
+
+    RestoreFirmwareServices ();
+
+    EfiCloseEvent (Event);
   }
-
-  RestoreFirmwareServices ();
-
-  EfiCloseEvent (Event);
 }
 
-// AppleBooterStartNotify
+// InternalAppleBooterStartNotify
 /** Invoke a notification event
 
   @param[in] Event    Event whose notification function is being invoked.
@@ -91,28 +98,34 @@ AppleBooterExitNotify (
 STATIC
 VOID
 EFIAPI
-AppleBooterStartNotify (
+InternalAppleBooterStartNotify (
   IN EFI_EVENT  Event,
   IN VOID       *Context
   )
 {
-  DEBUG_CODE (
-    mXnuPrepareStartSignaledInCurrentBooter = FALSE;
-    );
-
+  // The allocation might have failed, so run thus on any level.
   if (PcdGetBool (PcdPreserveSystemTable)) {
     InternalOverrideSystemTable (mPrivateData.AppleBooterHandleRegistration);
   }
 
-  OverrideFirmwareServices ();
- 
-  EfiNamedEventListen (
-    &gAppleBooterExitNamedEventGuid,
-    TPL_NOTIFY,
-    AppleBooterExitNotify,
-    NULL,
-    NULL
+  DEBUG_CODE (
+    mXnuPrepareStartSignaledInCurrentBooter = FALSE;
     );
+
+
+  if (mAppleBooterLevel == 0) {
+    OverrideFirmwareServices ();
+ 
+    EfiNamedEventListen (
+      &gAppleBooterExitNamedEventGuid,
+      TPL_NOTIFY,
+      InternalAppleBooterExitNotify,
+      NULL,
+      NULL
+      );
+  }
+
+  ++mAppleBooterLevel;
 }
 
 // FirmwareFixesLibConstructor
@@ -121,16 +134,23 @@ FirmwareFixesLibConstructor (
   VOID
   )
 {
-  mPrivateData.AppleBooterHandleNotifyEvent = MiscCreateNotifySignalEvent (
-                                                AppleBooterStartNotify,
-                                                NULL
-                                                );
+  EFI_EVENT Event;
 
-  EfiRegisterProtocolNotify (
-    &gAppleBooterHandleProtocolGuid,
-    mPrivateData.AppleBooterHandleNotifyEvent,
-    &mPrivateData.AppleBooterHandleRegistration
-    );
+  Event = MiscCreateNotifySignalEvent (
+            InternalAppleBooterStartNotify,
+            NULL
+            );
+
+  if (Event != NULL) {
+    mPrivateData.AppleBooterHandleNotifyEvent = Event;
+
+
+    EfiRegisterProtocolNotify (
+      &gAppleBooterHandleProtocolGuid,
+      mPrivateData.AppleBooterHandleNotifyEvent,
+      &mPrivateData.AppleBooterHandleRegistration
+      );
+  }
 }
 
 // FirmwareFixesLibDestructor
@@ -139,5 +159,9 @@ FirmwareFixesLibDestructor (
   VOID
   )
 {
-  EfiCloseEvent (mPrivateData.AppleBooterHandleNotifyEvent);
+  if (mPrivateData.AppleBooterHandleNotifyEvent != NULL) {
+    EfiCloseEvent (mPrivateData.AppleBooterHandleNotifyEvent);
+
+    mPrivateData.AppleBooterHandleNotifyEvent = NULL;
+  }
 }

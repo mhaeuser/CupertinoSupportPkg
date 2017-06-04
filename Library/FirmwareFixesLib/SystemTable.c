@@ -30,9 +30,6 @@
 // mSTCopy
 STATIC EFI_SYSTEM_TABLE *mSTCopy = NULL;
 
-// mAppleBooterLevel
-STATIC INTN mAppleBooterLevel = 0;
-
 // InternalOverrideSystemTable
 VOID
 InternalOverrideSystemTable (
@@ -45,41 +42,39 @@ InternalOverrideSystemTable (
 
   ASSERT (Registration != NULL);
 
-  ++mAppleBooterLevel;
-
-  DEBUG_CODE (
-    ASSERT (
-      (((mAppleBooterLevel == 1) ? 1 : 0) ^ ((mSTCopy != NULL) ? 1 : 0)) != 0
-      );
-    );
-
-  if (mAppleBooterLevel == 1) {
+  if (mSTCopy == NULL) {
     mSTCopy = AllocateXnuSupportData (gST->Hdr.HeaderSize);
+
+    if (mSTCopy != NULL) {
+      CopyMem (
+        (VOID *)mSTCopy,
+        (VOID *)gST,
+        gST->Hdr.HeaderSize
+        );
+
+      Status = EfiLocateProtocol (
+                 &gAppleBooterHandleProtocolGuid,
+                 Registration,
+                 (VOID **)&BooterHandle
+                 );
+
+      ASSERT (Status != EFI_NOT_FOUND);
+
+      if (!EFI_ERROR (Status)) {
+        Status = EfiHandleProtocol (
+                   BooterHandle,
+                   &gEfiLoadedImageProtocolGuid,
+                   (VOID **)&LoadedImage
+                   );
+
+        ASSERT (Status != EFI_UNSUPPORTED);
+
+        if (!EFI_ERROR (Status)) {
+          LoadedImage->SystemTable = mSTCopy;
+        }
+      }
+    }
   }
-
-  CopyMem (
-    (VOID *)mSTCopy,
-    (VOID *)gST,
-    gST->Hdr.HeaderSize
-    );
-
-  Status = EfiLocateProtocol (
-             &gAppleBooterHandleProtocolGuid,
-             Registration,
-             (VOID **)&BooterHandle
-             );
-
-  ASSERT (Status != EFI_NOT_FOUND);
-
-  Status = EfiHandleProtocol (
-             BooterHandle,
-             &gEfiLoadedImageProtocolGuid,
-             (VOID **)&LoadedImage
-             );
-
-  ASSERT (Status != EFI_UNSUPPORTED);
-
-  LoadedImage->SystemTable = mSTCopy;
 }
 
 // InternalFreeSystemTableCopy
@@ -88,16 +83,12 @@ InternalFreeSystemTableCopy (
   VOID
   )
 {
-  --mAppleBooterLevel;
-
-  if (mAppleBooterLevel == 0) {
+  if (mSTCopy != NULL) {
     FreeXnuSupportMemory (
       (VOID *)mSTCopy,
-      EFI_SIZE_TO_PAGES (mSTCopy->Hdr.HeaderSize)
-    );
+      mSTCopy->Hdr.HeaderSize
+      );
 
-    DEBUG_CODE (
-      mSTCopy = NULL;
-    );
+    mSTCopy = NULL;
   }
 }
