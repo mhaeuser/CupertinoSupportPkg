@@ -29,8 +29,6 @@
 
 #include <Uefi.h>
 
-#include <MiscBase.h>
-
 #include <Library/BaseMemoryLib.h>
 #include <Library/CupertinoXnuLib.h>
 #include <Library/DebugLib.h>
@@ -95,7 +93,7 @@ GetPartialVirtualAddressMap (
   VirtualAddressMap = mVirtualAddressMap;
 
   for (Index = 0; Index < (MemoryMapSize / DescriptorSize); ++Index) {
-    if (BIT_SET (MemoryDescriptor->Attribute, EFI_MEMORY_RUNTIME)) {
+    if ((MemoryDescriptor->Attribute & EFI_MEMORY_RUNTIME) != 0) {
       if ((VirtualMemoryMapSize + DescriptorSize) > sizeof (mVirtualAddressMap)) {
         VirtualAddressMap = NULL;
 
@@ -127,6 +125,7 @@ GetPartialVirtualAddressMap (
   return VirtualAddressMap;
 }
 
+// MapVirtualPages
 VOID
 MapVirtualPages (
   IN UINTN                  MemoryMapSize,
@@ -195,7 +194,7 @@ ProtectRutimeDataFromRelocation (
   ASSERT (SystemTableArea != 0);
 
   for (Index = 0; Index < (MemoryMapSize / DescriptorSize); ++Index) {
-    if (BIT_SET (MemoryMap->Attribute, EFI_MEMORY_RUNTIME)
+    if (((MemoryMap->Attribute & EFI_MEMORY_RUNTIME) != 0)
      && (MemoryMap->Type == EfiRuntimeServicesData)
      && (MemoryMap->PhysicalStart != SystemTableArea)) {
       MemoryMap->Type = EfiMemoryMappedIO;
@@ -252,7 +251,7 @@ DefragmentRuntimeServices (
       // it's safer to mark it ACPI NVS then make it free
       // and remove RT attribute
       MemoryMap->Type      = EfiACPIMemoryNVS;
-      MemoryMap->Attribute = UNSET_BIT (MemoryMap->Attribute, EFI_MEMORY_RUNTIME);
+      MemoryMap->Attribute = (MemoryMap->Attribute & ~(UINT64)EFI_MEMORY_RUNTIME);
     }
 
     MemoryMap = NEXT_MEMORY_DESCRIPTOR (MemoryMap, DescriptorSize);
@@ -338,9 +337,9 @@ FixMemoryMap (
     // Some UEFIs end up with "reserved" area with EFI_MEMORY_RUNTIME flag set
     // when Intel HD3000 or HD4000 is used. We will remove that flag here.
 
-    if (BIT_SET (MemoryMapWalker->Attribute, EFI_MEMORY_RUNTIME)
+    if (((MemoryMapWalker->Attribute & EFI_MEMORY_RUNTIME) != 0)
      && (MemoryMapWalker->Type == EfiReservedMemoryType)) {
-      MemoryMapWalker->Attribute = UNSET_BIT (MemoryMapWalker->Attribute, EFI_MEMORY_RUNTIME);
+      MemoryMapWalker->Attribute = (MemoryMapWalker->Attribute & ~(UINT64)EFI_MEMORY_RUNTIME);
     }
 
     // Fix by Slice - fixes sleep/wake on GB boards.
