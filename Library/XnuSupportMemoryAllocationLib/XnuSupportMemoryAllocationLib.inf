@@ -26,6 +26,7 @@
   MdePkg/MdePkg.dec
   EfiMiscPkg/EfiMiscPkg.dec
   CupertinoXnuPkg/CupertinoXnuPkg.dec
+  CupertinoSupportPkg/CupertinoSupportPkg.dec
 
 [LibraryClasses]
   DebugLib

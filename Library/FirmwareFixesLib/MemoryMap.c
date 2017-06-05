@@ -376,7 +376,9 @@ AssignVirtualAddressesToMemoryMap (
     MemorySize = EFI_PAGES_TO_SIZE (MemoryDescriptor->NumberOfPages);
 
     if ((MemoryDescriptor->Attribute & EFI_MEMORY_RUNTIME) != 0) {
-      MemoryDescriptor->VirtualStart = XNU_KERNEL_TO_VIRTUAL (KernelRuntime);
+      MemoryDescriptor->VirtualStart = (EFI_VIRTUAL_ADDRESS)(
+                                         XNU_KERNEL_TO_VIRTUAL (KernelRuntime)
+                                         );
 
       KernelRuntime += MemorySize;
     }
