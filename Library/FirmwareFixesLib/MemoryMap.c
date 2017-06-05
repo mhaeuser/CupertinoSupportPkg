@@ -228,7 +228,7 @@ DefragmentRuntimeServices (
       || (MemoryMap->Type == EfiRuntimeServicesData))
      && (MemoryMap->PhysicalStart != SystemTableArea)) {
       KernelRtBlock     = (UINTN)XNU_KERNEL_TO_PHYSICAL (MemoryMap->VirtualStart);
-      KernelRtBlockSize = EFI_PAGES_TO_SIZE (MemoryMap->NumberOfPages);
+      KernelRtBlockSize = EFI_PAGES_TO_SIZE ((UINTN)MemoryMap->NumberOfPages);
 
       CopyMem (
         (VOID *)(UINTN)(KernelRtBlock + BaseOffset),
@@ -373,7 +373,7 @@ AssignVirtualAddressesToMemoryMap (
   MemoryDescriptor = MemoryMap;
 
   for (Index = 0; Index < (MemoryMapSize / DescriptorSize); ++Index) {
-    MemorySize = EFI_PAGES_TO_SIZE (MemoryDescriptor->NumberOfPages);
+    MemorySize = EFI_PAGES_TO_SIZE ((UINTN)MemoryDescriptor->NumberOfPages);
 
     if ((MemoryDescriptor->Attribute & EFI_MEMORY_RUNTIME) != 0) {
       MemoryDescriptor->VirtualStart = (EFI_VIRTUAL_ADDRESS)(

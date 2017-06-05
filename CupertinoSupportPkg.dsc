@@ -49,6 +49,7 @@
   DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
 
   MiscDevicePathLib|EfiMiscPkg/Library/MiscDevicePathLib/MiscDevicePathLib.inf
+  MiscEventLib|EfiMiscPkg/Library/MiscEventLib/MiscEventLib.inf
  
   XnuSupportMemoryAllocationLib|CupertinoSupportPkg/Library/XnuSupportMemoryAllocationLib/XnuSupportMemoryAllocationLib.inf
   KernelEntryNotifyImageLib|CupertinoSupportPkg/Library/KernelEntryNotifyImageLib/KernelEntryNotifyImageLib.inf
@@ -59,6 +60,12 @@
 [LibraryClasses.IA32, LibraryClasses.X64]
   KernelEntryHookLib|CupertinoSupportPkg/Library/KernelEntryHookLib/KernelEntryHookLib.inf
   KernelEntryNotifyLib|CupertinoSupportPkg/Library/KernelEntryNotifyLib/KernelEntryNotifyLib.inf
+
+[LibraryClasses.X64]
+  VirtualMemoryLib|CupertinoSupportPkg/Library/VirtualMemoryLib/VirtualMemoryLib.inf
+
+[LibraryClasses.IA32, LibraryClasses.ARM, LibraryClasses.AARCH64, LibraryClasses.IPF, LibraryClasses.EBC]
+  VirtualMemoryLib|CupertinoSupportPkg/Library/VirtualMemoryLibNull/VirtualMemoryLib.inf
 
 [LibraryClasses.ARM, LibraryClasses.AARCH64]
   NULL|ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
@@ -77,3 +84,4 @@
 [Components.IA32, Components.X64]
   CupertinoSupportPkg/Library/KernelEntryHookLib/KernelEntryHookLib.inf
   CupertinoSupportPkg/Library/KernelEntryNotifyLib/KernelEntryNotifyLib.inf
+  CupertinoSupportPkg/Library/VirtualMemoryLib/VirtualMemoryLib.inf

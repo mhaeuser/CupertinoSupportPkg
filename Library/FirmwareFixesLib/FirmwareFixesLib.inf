@@ -34,9 +34,10 @@
   BaseMemoryLib
   CacheMaintenanceLib
   CupertinoXnuLib
-  KernelEntryNotifyLib
-  XnuSupportMemoryAllocationLib
   KernelEntryNotifyImageLib
+  KernelEntryNotifyLib
+  VirtualMemoryLib
+  XnuSupportMemoryAllocationLib
 
 [FeaturePcd]
   gCupertinoSupportPkgTokenSpaceGuid.PcdPreserveSystemTable                  ## CONSUMES

@@ -33,7 +33,7 @@
 // MEMORY_DESCRIPTOR_PHYSICAL_TOP
 #define MEMORY_DESCRIPTOR_PHYSICAL_TOP(MemoryDescriptor)      \
   ((MemoryDescriptor)->PhysicalStart                          \
-    + EFI_PAGES_TO_SIZE ((MemoryDescriptor)->NumberOfPages))
+    + EFI_PAGES_TO_SIZE ((UINTN)((MemoryDescriptor)->NumberOfPages)))
 
 #define RELOCATION_BLOCK_SIGNATURE  SIGNATURE_32 ('R', 'E', 'L', 'B')
 

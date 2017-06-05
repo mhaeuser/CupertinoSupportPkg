@@ -32,6 +32,7 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/MiscMemoryLib.h>
 #include <Library/VirtualMemoryLib.h>
 
 #include "VirtualMemoryInternal.h"
@@ -73,7 +74,7 @@ VirtualMemoryConstructor (
     mVmMemoryBottom = (UINTN)mVmMemory;
   }
 
-  Result = (mVmMemoryBottom != 0);
+  Result = (BOOLEAN)(mVmMemoryBottom != 0);
 
   return Result;
 }
@@ -128,7 +129,7 @@ VirtualMemoryMapVirtualPages (
   IN EFI_PHYSICAL_ADDRESS  PhysicalAddress
   )
 {
-  EFI_STATUS Result;
+  BOOLEAN Result;
 
   Result = TRUE;
 
