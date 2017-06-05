@@ -17,7 +17,7 @@
 ##
 
 [Defines]
-  BASE_NAME               = KernelEntryHookLib
+  BASE_NAME               = KernelEntryHookLibNull
   LIBRARY_CLASS           = KernelEntryHookLib
   MODULE_TYPE             = BASE
   INF_VERSION             = 0x00010005
@@ -25,27 +25,7 @@
 
 [Packages]
   MdePkg/MdePkg.dec
-  EfiMiscPkg/EfiMiscPkg.dec
-  CupertinoXnuPkg/CupertinoXnuPkg.dec
-  CupertinoSupportPkg/CupertinoSupportPkg.dec
   AppleXnuPkg/AppleXnuPkg.dec
 
-[LibraryClasses]
-  AppleMachoLib
-  BaseMemoryLib
-  CacheMaintenanceLib
-  CupertinoXnuLib
-  KernelEntryNotifyLib
-  XnuSupportMemoryAllocationLib
-  KernelEntryNotifyImageLib
-
-[Sources.Common]
-  KernelEntryHookInternal.h
-  KernelEntryHook32.nasm
+[Sources]
   KernelEntryHookLib.c
-
-[Sources.IA32]
-  Ia32/PrepareKernelEntryHook32.nasm
-
-[Sources.X64]
-  X64/PrepareKernelEntryHook32.nasm

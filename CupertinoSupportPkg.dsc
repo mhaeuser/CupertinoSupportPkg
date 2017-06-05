@@ -61,6 +61,10 @@
   KernelEntryHookLib|CupertinoSupportPkg/Library/KernelEntryHookLib/KernelEntryHookLib.inf
   KernelEntryNotifyLib|CupertinoSupportPkg/Library/KernelEntryNotifyLib/KernelEntryNotifyLib.inf
 
+[LibraryClasses.ARM, LibraryClasses.AARCH64, LibraryClasses.IPF, LibraryClasses.EBC]
+  KernelEntryHookLib|CupertinoSupportPkg/Library/KernelEntryHookLibNull/KernelEntryHookLib.inf
+  KernelEntryNotifyLib|CupertinoSupportPkg/Library/KernelEntryNotifyLibNull/KernelEntryNotifyLib.inf
+
 [LibraryClasses.X64]
   VirtualMemoryLib|CupertinoSupportPkg/Library/VirtualMemoryLib/VirtualMemoryLib.inf
 
