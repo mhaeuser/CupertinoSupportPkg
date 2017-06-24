@@ -14,7 +14,7 @@
   limitations under the License.
 **/
 
-#include <AppleUefi.h>
+#include <AppleMacEfi.h>
 #include <PiDxe.h>
 
 #include <IndustryStandard/AppleMachoImage.h>

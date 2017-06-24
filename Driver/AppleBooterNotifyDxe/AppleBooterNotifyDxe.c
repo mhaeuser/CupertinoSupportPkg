@@ -27,7 +27,7 @@
   POSSIBILITY OF SUCH DAMAGE.
 **/
 
-#include <AppleUefi.h>
+#include <AppleMacEfi.h>
 
 #include <Guid/AppleBooterExitNamedEvent.h>
 #include <Guid/AppleOSLoaded.h>
