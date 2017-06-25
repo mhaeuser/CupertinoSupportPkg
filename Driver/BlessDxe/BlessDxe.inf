@@ -28,7 +28,7 @@
   MdePkg/MdePkg.dec
   CupertinoSupportPkg/CupertinoSupportPkg.dec
   EfiMiscPkg/EfiMiscPkg.dec
-  ApplePkg/ApplePkg.dec
+  EfiPkg/EfiPkg.dec
 
 [LibraryClasses]
   DebugLib
