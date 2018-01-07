@@ -305,8 +305,8 @@ FixMemoryMap (
     // the kernel tried to map it nevertheless.
     // Set the type to MMIO to have it assigned a virtual address correctly.
     //
-    if (((MemoryMapWalker->Attribute & EFI_MEMORY_RUNTIME) != 0)
-     && (MemoryMapWalker->Type == EfiReservedMemoryType)) {
+    if ((MemoryMapWalker->Type == EfiReservedMemoryType)
+     && ((MemoryMapWalker->Attribute & EFI_MEMORY_RUNTIME) != 0) ) {
       MemoryMapWalker->Type = EfiMemoryMappedIO;
     }
 
