@@ -25,11 +25,11 @@
   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE.
+
 **/
 
 #include <Uefi.h>
 
-#include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/MiscMemoryLib.h>
@@ -37,32 +37,18 @@
 
 #include "VirtualMemoryInternal.h"
 
-// VM_MEMORY_POOL_SIZE
 #define VM_MEMORY_POOL_SIZE  SIZE_2MB
 
-// mVmMemoryBottom
-STATIC VOID *mVmMemory = NULL;
-
-// mVmMemoryAvailablePages
-STATIC UINTN mVmMemoryPages = 0;
-
-// mVmMemoryBottom
-STATIC UINTN mVmMemoryBottom = 0;
-
-// mVmMemoryAvailablePages
+STATIC VOID  *mVmMemory              = NULL;
+STATIC UINTN mVmMemoryPages          = 0;
 STATIC UINTN mVmMemoryAvailablePages = 0;
 
-// VirtualMemoryConstructor
 BOOLEAN
 VirtualMemoryConstructor (
   VOID
   )
 {
-  BOOLEAN Result;
-
-  Result = FALSE;
-
-  if (mVmMemoryBottom == 0) {
+  if (mVmMemory == NULL) {
     mVmMemoryAvailablePages = EFI_SIZE_TO_PAGES (VM_MEMORY_POOL_SIZE);
 
     mVmMemory = AllocatePagesFromTop (
@@ -70,16 +56,11 @@ VirtualMemoryConstructor (
                   mVmMemoryAvailablePages,
                   BASE_4GB
                   );
-
-    mVmMemoryBottom = (UINTN)mVmMemory;
   }
 
-  Result = (BOOLEAN)(mVmMemoryBottom != 0);
-
-  return Result;
+  return (BOOLEAN)(mVmMemory != NULL);
 }
 
-// VirtualMemoryConstructor
 VOID
 VirtualMemoryDestructor (
   VOID
@@ -92,35 +73,33 @@ VirtualMemoryDestructor (
 
     DEBUG_CODE (
       mVmMemoryPages          = 0;
-      mVmMemoryBottom         = 0;
       mVmMemoryAvailablePages = 0;
       );
   }
 }
 
-// VmInternalAllocatePages
 VOID *
 VmInternalAllocatePages (
   IN UINTN  NumberOfPages
   )
 {
-  VOID *Memory;
+  VOID  *Memory;
+  UINTN FreeOffset;
 
   ASSERT (mVmMemoryAvailablePages >= NumberOfPages);
 
   Memory = NULL;
 
   if (mVmMemoryAvailablePages >= NumberOfPages) {
-    Memory = (VOID *)mVmMemoryBottom;
+    FreeOffset = EFI_PAGES_TO_SIZE (mVmMemoryPages - mVmMemoryAvailablePages);
+    Memory = (VOID *)((UINTN)mVmMemory + FreeOffset);
 
-    mVmMemoryBottom         += EFI_PAGES_TO_SIZE (NumberOfPages);
     mVmMemoryAvailablePages -= NumberOfPages;
   }
 
   return Memory;
 }
 
-// VirtualMemoryMapVirtualPages
 BOOLEAN
 VirtualMemoryMapVirtualPages (
   IN VOID                  *PageTable,
@@ -134,7 +113,11 @@ VirtualMemoryMapVirtualPages (
   Result = TRUE;
 
   while ((NumberOfPages > 0) && Result) {
-    Result = VmInternalMapVirtualPage (PageTable, VirtualAddress, PhysicalAddress);
+    Result = VmInternalMapVirtualPage (
+               PageTable,
+               VirtualAddress,
+               PhysicalAddress
+               );
 
     VirtualAddress  += EFI_PAGE_SIZE;
     PhysicalAddress += EFI_PAGE_SIZE;
