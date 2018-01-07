@@ -25,6 +25,7 @@
   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE.
+
 **/
 
 #include <AppleMacEfi.h>
@@ -40,16 +41,14 @@
 #include <Library/EfiBootServicesLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/MiscDevicePathLib.h>
-#include <Library/MiscRuntimeLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 
-// mStartImage
 STATIC EFI_IMAGE_START mStartImage = NULL;
 
-// InternalStartImage
-/** Transfers control to a loaded image's entry point.
+/**
+  Transfers control to a loaded image's entry point.
 
   @param[in]  ImageHandle   Handle of image to be started.
   @param[out] ExitDataSize  The pointer to the size, in bytes, of ExitData.
@@ -63,6 +62,7 @@ STATIC EFI_IMAGE_START mStartImage = NULL;
   @retval EFI_SECURITY_VIOLATION  The current platform policy specifies that
                                   the image should not be started.
   @return  Exit code from image
+
 **/
 STATIC
 EFI_STATUS
@@ -82,11 +82,7 @@ InternalStartImage (
   UINTN                     Result;
   BOOLEAN                   AppleOs;
 
-  ASSERT (ImageHandle != NULL);
-  ASSERT ((((ExitDataSize != 0) ? 1 : 0) ^ ((ExitData == NULL) ? 1 : 0)) != 0);
-  ASSERT (!EfiAtRuntime ());
-  ASSERT (EfiGetCurrentTpl () <= TPL_CALLBACK);
-  ASSERT (gBS->StartImage != NULL);
+  ASSERT (mStartImage != NULL);
 
   Status = EfiHandleProtocol (
              ImageHandle,
@@ -145,7 +141,6 @@ InternalStartImage (
   return Status;
 }
 
-// AppleBooterNotifyMain
 EFI_STATUS
 EFIAPI
 AppleBooterNotifyMain (
@@ -171,7 +166,6 @@ AppleBooterNotifyMain (
   return EFI_SUCCESS;
 }
 
-// AppleBooterNotifyUnload
 EFI_STATUS
 EFIAPI
 AppleBooterNotifyUnload (
