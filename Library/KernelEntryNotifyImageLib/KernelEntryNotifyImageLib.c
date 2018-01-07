@@ -12,6 +12,7 @@
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
+
 **/
 
 #include <Uefi.h>
@@ -23,6 +24,7 @@
 #include <Library/PeCoffLib.h>
 #include <Library/XnuSupportMemoryAllocationLib.h>
 
+GLOBAL_REMOVE_IF_UNREFERENCED
 LIST_ENTRY gNotifys = INITIALIZE_LIST_HEAD_VARIABLE (gNotifys);
 
 UINTN
@@ -86,19 +88,18 @@ LoadKernelEntryNotifyImage (
               );
 
             EntryPoint = (UINTN)ImageContext.EntryPoint;
-
-            goto Done;
           }
         }
 
-        FreeXnuSupportMemory (
-          (VOID *)(UINTN)ImageContext.ImageAddress,
-          EFI_SIZE_TO_PAGES (Size)
-          );
+        if (EFI_ERROR (Status)) {
+          FreeXnuSupportMemory (
+            (VOID *)(UINTN)ImageContext.ImageAddress,
+            EFI_SIZE_TO_PAGES (Size)
+            );
+          }
       }
     }
   }
 
-Done:
   return EntryPoint;
 }
