@@ -46,6 +46,8 @@
 ///
 STATIC EFI_MEMORY_DESCRIPTOR mVirtualAddressMap[64];
 
+STATIC RT_RELOC_PROTECT_DATA gRelocInfoData;
+
 /**
   Copies RT flagged areas to separate Memory Map, defines virtual to phisycal
   address mapping and calls SetVirtualAddressMap() only with that partial
@@ -195,14 +197,16 @@ MapVirtualPages (
 
 **/
 VOID
-ProtectRutimeDataFromRelocation (
+ProtectRutimeMemoryFromRelocation (
   IN UINTN                  MemoryMapSize,
   IN UINTN                  DescriptorSize,
   IN EFI_MEMORY_DESCRIPTOR  *MemoryMap,
   IN UINTN                  SystemTableArea
   )
 {
-  UINTN Index;
+  UINTN                 Index;
+
+  RT_RELOC_PROTECT_INFO *RelocInfo;
 
   ASSERT (MemoryMapSize > 0);
   ASSERT (DescriptorSize > 0);
@@ -210,14 +214,64 @@ ProtectRutimeDataFromRelocation (
   ASSERT (MemoryMap != NULL);
   ASSERT (SystemTableArea != 0);
 
+  gRelocInfoData.NumEntries = 0;
+
+  RelocInfo = &gRelocInfoData.RelocInfo[0];
+
   for (Index = 0; Index < (MemoryMapSize / DescriptorSize); ++Index) {
     if (((MemoryMap->Attribute & EFI_MEMORY_RUNTIME) != 0)
-     && (MemoryMap->Type == EfiRuntimeServicesData)
-     && (MemoryMap->PhysicalStart != SystemTableArea)) {
+     && ((MemoryMap->Type == EfiRuntimeServicesCode)
+      || ((MemoryMap->Type == EfiRuntimeServicesData)
+       && (MemoryMap->PhysicalStart != SystemTableArea)))) {
+      // TODO: Make this dynamic.
+      if (gRelocInfoData.NumEntries < ARRAY_SIZE (gRelocInfoData.RelocInfo)) {
+        RelocInfo->PhysicalStart = MemoryMap->PhysicalStart;
+        RelocInfo->Type          = MemoryMap->Type;
+        ++RelocInfo;
+        ++gRelocInfoData.NumEntries;
+      } else {
+        ASSERT (FALSE);
+      }
+
       MemoryMap->Type = EfiMemoryMappedIO;
     }
 
     MemoryMap = NEXT_MEMORY_DESCRIPTOR (MemoryMap, DescriptorSize);
+  }
+}
+
+VOID
+RestoreRuntimeMemoryProtectTypes (
+  IN     UINTN                  MemoryMapSize,
+  IN     UINTN                  DescriptorSize,
+  IN OUT EFI_MEMORY_DESCRIPTOR  *MemoryMap
+  )
+{
+  UINTN Index;
+  UINTN Index2;
+  UINTN NumEntriesLeft;
+
+  NumEntriesLeft = gRelocInfoData.NumEntries;
+
+  if (NumEntriesLeft > 0) {
+    for (Index = 0; Index < (MemoryMapSize / DescriptorSize); ++Index) {
+      for (Index2 = 0; Index2 < gRelocInfoData.NumEntries; ++Index2) {
+        if (MemoryMap->PhysicalStart == gRelocInfoData.RelocInfo[Index2].PhysicalStart) {
+          MemoryMap->Type = gRelocInfoData.RelocInfo[Index2].Type;
+          --NumEntriesLeft;
+
+          if (NumEntriesLeft == 0) {
+            break;
+          }
+        }
+      }
+
+      if (NumEntriesLeft == 0) {
+        break;
+      }
+
+      MemoryMap = NEXT_MEMORY_DESCRIPTOR (MemoryMap, DescriptorSize);
+    }
   }
 }
 

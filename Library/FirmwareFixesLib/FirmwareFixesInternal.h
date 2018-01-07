@@ -44,6 +44,16 @@ typedef struct {
   UINT32     Destination;
 } RELOCATION_BLOCK;
 
+typedef struct {
+  EFI_PHYSICAL_ADDRESS  PhysicalStart;
+  EFI_MEMORY_TYPE       Type;
+} RT_RELOC_PROTECT_INFO;
+
+typedef struct {
+  UINTN                 NumEntries;
+  RT_RELOC_PROTECT_INFO RelocInfo[50]; // TODO: Allocate this dynamic.
+} RT_RELOC_PROTECT_DATA;
+
 extern BOOLEAN mXnuPrepareStartSignaledInCurrentBooter;
 
 VOID
