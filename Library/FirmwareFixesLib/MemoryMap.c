@@ -307,7 +307,7 @@ FixMemoryMap (
     //
     if (((MemoryMapWalker->Attribute & EFI_MEMORY_RUNTIME) != 0)
      && (MemoryMapWalker->Type == EfiReservedMemoryType)) {
-      MemoryMapWalker->Type = EfiConventionalMemory;
+      MemoryMapWalker->Type = EfiMemoryMappedIO;
     }
 
     // TODO: Why is this needed?
