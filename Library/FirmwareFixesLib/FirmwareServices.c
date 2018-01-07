@@ -43,6 +43,7 @@
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/VirtualMemoryLib.h>
 
+#include "RuntimeWriteProtectionDisable.h"
 #include "FirmwareFixesInternal.h"
 
 STATIC BOOLEAN mFirmwareServicesOverriden = FALSE;
@@ -60,6 +61,8 @@ STATIC EFI_GET_MEMORY_MAP mGetMemoryMap = NULL;
 STATIC EFI_HANDLE_PROTOCOL mHandleProtocol = NULL;
 
 STATIC EFI_SET_VIRTUAL_ADDRESS_MAP mSetVirtualAddressMap = NULL;
+
+STATIC VOID *gRtWpDisableShims = NULL;
 
 // TODO: Get rid of this and just use a ConSplitter.
 /**
@@ -500,8 +503,14 @@ OverrideFirmwareServices (
   VOID
   )
 {
-  BOOLEAN Result;
-  EFI_TPL OldTpl;
+  BOOLEAN    Result;
+  EFI_TPL    OldTpl;
+  EFI_STATUS Status;
+
+  UINTN      CodeAddress;
+  UINTN      GetVariableOffset;
+  UINTN      GetNextVariableNameOffset;
+  UINTN      SetVariableOffset;
 
   DEBUG_CODE (
     ASSERT (!mFirmwareServicesOverriden);
@@ -545,11 +554,50 @@ OverrideFirmwareServices (
   if (PcdGetBool (PcdPartialVirtualAddressMap) || Result) {
     mSetVirtualAddressMap     = gRT->SetVirtualAddressMap;
     gRT->SetVirtualAddressMap = InternalSetVirtualAddressMap;
-
-    UPDATE_EFI_TABLE_HEADER_CRC32 (gRT->Hdr);
   } else {
     mSetVirtualAddressMap = NULL;
   }
+
+  CodeAddress = (UINTN)&gRtWpDisableShimsDataStart;
+
+  Status = EfiAllocatePool (
+             EfiRuntimeServicesCode,
+             ((UINTN)&gRtWpDisableShimsDataEnd - CodeAddress),
+             &gRtWpDisableShims
+             );
+
+  if (!EFI_ERROR (Status)) {
+    gGetVariable         = (UINTN)gRT->GetVariable;
+    gGetNextVariableName = (UINTN)gRT->GetNextVariableName;
+    gSetVariable         = (UINTN)gRT->SetVariable;
+
+    CopyMem (
+      gRtWpDisableShims,
+      (VOID *)CodeAddress,
+      ((UINTN)&gRtWpDisableShimsDataEnd - CodeAddress)
+      );
+
+    
+    GetVariableOffset         = ((UINTN)&RtWpDisableGetVariable - CodeAddress);
+    GetNextVariableNameOffset = ((UINTN)&RtWpDisableGetNextVariableName - CodeAddress);
+    SetVariableOffset         = ((UINTN)&RtWpDisableSetVariable - CodeAddress);
+
+    gRT->GetVariable = (EFI_GET_VARIABLE)(
+                         (UINTN)gRtWpDisableShims + GetVariableOffset
+                         );
+
+    gRT->GetNextVariableName = (EFI_GET_NEXT_VARIABLE_NAME)(
+                                 (UINTN)gRtWpDisableShims + GetNextVariableNameOffset
+                                 );
+
+    gRT->SetVariable = (EFI_SET_VARIABLE)(
+                         (UINTN)gRtWpDisableShims + SetVariableOffset
+                         );
+  } else {
+    gRtWpDisableShims = NULL;
+  }
+
+  UPDATE_EFI_TABLE_HEADER_CRC32 (gRT->Hdr);
 
   EfiRestoreTPL (OldTpl);
 
@@ -558,7 +606,6 @@ OverrideFirmwareServices (
     );
 }
 
-// RestoreFirmwareServices
 VOID
 RestoreFirmwareServices (
   VOID

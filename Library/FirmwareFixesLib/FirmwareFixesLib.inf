@@ -54,3 +54,6 @@
   FirmwareServices.c
   MemoryMap.c
   SystemTable.c
+
+[Sources.X64]
+  X64/RuntimeWriteProtectionDisable.nasm
