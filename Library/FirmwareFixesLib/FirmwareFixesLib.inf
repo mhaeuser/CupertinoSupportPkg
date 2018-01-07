@@ -40,7 +40,7 @@
   XnuSupportMemoryAllocationLib
 
 [FeaturePcd]
-  gCupertinoSupportPkgTokenSpaceGuid.PcdPreserveSystemTable                  ## CONSUMES
+  gCupertinoSupportPkgTokenSpaceGuid.PcdPreserveSystemTable                          ## CONSUMES
   gCupertinoSupportPkgTokenSpaceGuid.PcdPartialVirtualAddressMap                     ## CONSUMES
   gCupertinoSupportPkgTokenSpaceGuid.PcdMapVirtualPages                              ## CONSUMES
   gCupertinoSupportPkgTokenSpaceGuid.PcdShrinkMemoryMap                              ## CONSUMES
@@ -52,7 +52,6 @@
   FirmwareFixesInternal.h
   FirmwareFixesLib.c
   FirmwareServices.c
-  Hibernate.c
   Memory.c
   MemoryMap.c
   SystemTable.c

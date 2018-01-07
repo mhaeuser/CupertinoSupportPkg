@@ -25,14 +25,14 @@
   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE.
+
 **/
 
 #ifndef FIRMWARE_FIXES_INTERNAL_H_
 #define FIRMWARE_FIXES_INTERNAL_H_
 
-// MEMORY_DESCRIPTOR_PHYSICAL_TOP
-#define MEMORY_DESCRIPTOR_PHYSICAL_TOP(MemoryDescriptor)      \
-  ((MemoryDescriptor)->PhysicalStart                          \
+#define MEMORY_DESCRIPTOR_PHYSICAL_TOP(MemoryDescriptor)  \
+  ((MemoryDescriptor)->PhysicalStart                      \
     + EFI_PAGES_TO_SIZE ((UINTN)((MemoryDescriptor)->NumberOfPages)))
 
 #define RELOCATION_BLOCK_SIGNATURE  SIGNATURE_32 ('R', 'E', 'L', 'B')
@@ -46,31 +46,26 @@ typedef struct {
 
 extern BOOLEAN mXnuPrepareStartSignaledInCurrentBooter;
 
-// InternalOverrideSystemTable
 VOID
 InternalOverrideSystemTable (
   IN VOID  *Registration
   );
 
-// InternalFreeSystemTableCopy
 VOID
 InternalFreeSystemTableCopy (
   VOID
   );
 
-// OverrideFirmwareServices
 VOID
 OverrideFirmwareServices (
   VOID
   );
 
-// RestoreFirmwareServices
 VOID
 RestoreFirmwareServices (
   VOID
   );
 
-// FixMemoryMap
 VOID
 FixMemoryMap (
   IN     UINTN                  MemoryMapSize,
@@ -78,7 +73,6 @@ FixMemoryMap (
   IN     UINTN                  DescriptorSize
   );
 
-// ShrinkMemoryMap
 VOID
 ShrinkMemoryMap (
   IN UINTN                  *MemoryMapSize,
@@ -86,10 +80,10 @@ ShrinkMemoryMap (
   IN UINTN                  DescriptorSize
   );
 
-// GetPartialVirtualAddressMap
-/** Copies RT flagged areas to separate Memory Map, defines virtual to phisycal
-    address mapping and calls SetVirtualAddressMap() only with that partial
-    Memory Map.
+/**
+  Copies RT flagged areas to separate Memory Map, defines virtual to phisycal
+  address mapping and calls SetVirtualAddressMap() only with that partial
+  Memory Map.
 
   About partial Memory Map:
   Some UEFIs are converting pointers to virtual addresses even if they do not
@@ -102,25 +96,39 @@ ShrinkMemoryMap (
   same, although it seems that just assigning VirtualStart = PhysicalStart for
   non-RT areas also does the job.
 
-  About virtual to phisycal mappings:
-  Also adds virtual to phisycal address mappings for RT areas. This is needed
-  since SetVirtualAddressMap() does not work on my Aptio without that.
-  Probably because some driver has a bug and is trying to access new virtual
-  addresses during the change.  Linux and Windows are doing the same thing and
-  problem is not visible there.
+  @param[in] MemoryMapSize   The size in bytes of VirtualMap.
+  @param[in] DescriptorSize  The size in bytes of an entry in the VirtualMap.
+  @param[in] VirtualMap      An array of memory descriptors which contain new
+                             virtual address mapping information for all
+                             runtime ranges.
+
 **/
 EFI_MEMORY_DESCRIPTOR *
 GetPartialVirtualAddressMap (
   IN UINTN                  MemoryMapSize,
   IN UINTN                  DescriptorSize,
-  IN EFI_MEMORY_DESCRIPTOR  *MemoryMap
+  IN EFI_MEMORY_DESCRIPTOR  *VirtualMap
   );
 
+/**
+  Adds virtual to phisycal address mappings for RT areas. This is needed since
+  SetVirtualAddressMap() does not work on my Aptio without that.
+  Probably because some driver has a bug and is trying to access new virtual
+  addresses during the change.  Linux and Windows are doing the same thing and
+  problem is not visible there.
+
+  @param[in] MemoryMapSize   The size in bytes of VirtualMap.
+  @param[in] DescriptorSize  The size in bytes of an entry in the VirtualMap.
+  @param[in] VirtualMap      An array of memory descriptors which contain new
+                             virtual address mapping information for all
+                             runtime ranges.
+ 
+**/
 VOID
 MapVirtualPages (
   IN UINTN                  MemoryMapSize,
   IN UINTN                  DescriptorSize,
-  IN EFI_MEMORY_DESCRIPTOR  *MemoryMap
+  IN EFI_MEMORY_DESCRIPTOR  *VirtualMap
   );
 
 #endif // FIRMWARE_FIXES_INTERNAL_H_

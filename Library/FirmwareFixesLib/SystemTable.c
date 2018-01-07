@@ -12,6 +12,7 @@
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
+
 **/
 
 #include <Uefi.h>
@@ -27,10 +28,23 @@
 
 #include "FirmwareFixesInternal.h"
 
-// mSTCopy
 STATIC EFI_SYSTEM_TABLE *mSTCopy = NULL;
 
-// InternalOverrideSystemTable
+VOID
+InternalFreeSystemTableCopy (
+  VOID
+  )
+{
+  if (mSTCopy != NULL) {
+    FreeXnuSupportMemory (
+      (VOID *)mSTCopy,
+      mSTCopy->Hdr.HeaderSize
+      );
+
+    mSTCopy = NULL;
+  }
+}
+
 VOID
 InternalOverrideSystemTable (
   IN VOID  *Registration
@@ -73,22 +87,10 @@ InternalOverrideSystemTable (
           LoadedImage->SystemTable = mSTCopy;
         }
       }
+
+      if (EFI_ERROR (Status)) {
+        InternalFreeSystemTableCopy ();
+      }
     }
-  }
-}
-
-// InternalFreeSystemTableCopy
-VOID
-InternalFreeSystemTableCopy (
-  VOID
-  )
-{
-  if (mSTCopy != NULL) {
-    FreeXnuSupportMemory (
-      (VOID *)mSTCopy,
-      mSTCopy->Hdr.HeaderSize
-      );
-
-    mSTCopy = NULL;
   }
 }

@@ -25,6 +25,7 @@
   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE.
+
 **/
 
 #include <Uefi.h>
@@ -36,7 +37,6 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/EfiBootServicesLib.h>
-#include <Library/MiscRuntimeLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -45,38 +45,25 @@
 
 #include "FirmwareFixesInternal.h"
 
-// mFirmwareServicesOverriden
 STATIC BOOLEAN mFirmwareServicesOverriden = FALSE;
 
-// mAllocatePages
-STATIC EFI_ALLOCATE_PAGES mAllocatePages = NULL;
-
-// mAllocatePool
-STATIC EFI_ALLOCATE_POOL mAllocatePool = NULL;
-
-// mExitBootServices
+STATIC EFI_ALLOCATE_PAGES     mAllocatePages    = NULL;
+STATIC EFI_ALLOCATE_POOL      mAllocatePool     = NULL;
+STATIC EFI_FREE_PAGES         mFreePages        = NULL;
+STATIC EFI_FREE_POOL          mFreePool         = NULL;
 STATIC EFI_EXIT_BOOT_SERVICES mExitBootServices = NULL;
 
-// mFreePages
-STATIC EFI_FREE_PAGES mFreePages = NULL;
-
-// mFreePool
-STATIC EFI_FREE_POOL mFreePool = NULL;
-
-// mGetMemoryMap
-STATIC EFI_GET_MEMORY_MAP mGetMemoryMap = NULL;
-
-// mHandleProtocol
-STATIC EFI_HANDLE_PROTOCOL mHandleProtocol = NULL;
-
-// mSetVirtualAddressMap
-STATIC EFI_SET_VIRTUAL_ADDRESS_MAP mSetVirtualAddressMap = NULL;
-
-// mDisableMemoryAllocationServices
 STATIC BOOLEAN mDisableMemoryAllocationServices = FALSE;
 
-// InternalHandleProtocol
-/** Queries a handle to determine if it supports a specified protocol.
+STATIC EFI_GET_MEMORY_MAP mGetMemoryMap = NULL;
+
+STATIC EFI_HANDLE_PROTOCOL mHandleProtocol = NULL;
+
+STATIC EFI_SET_VIRTUAL_ADDRESS_MAP mSetVirtualAddressMap = NULL;
+
+// TODO: Get rid of this and just use a ConSplitter.
+/**
+  Queries a handle to determine if it supports a specified protocol.
 
   @param[in]  Handle     The handle being queried.
   @param[in]  Protocol   The published unique identifier of the protocol.
@@ -90,6 +77,7 @@ STATIC BOOLEAN mDisableMemoryAllocationServices = FALSE;
   @retval EFI_INVALID_PARAMETER  Handle is NULL.
   @retval EFI_INVALID_PARAMETER  Protocol is NULL.
   @retval EFI_INVALID_PARAMETER  Interface is NULL.
+
 **/
 STATIC
 EFI_STATUS
@@ -102,12 +90,6 @@ InternalHandleProtocol (
 {
   EFI_STATUS Status;
 
-  ASSERT (Handle != NULL);
-  ASSERT (Protocol != NULL);
-  ASSERT (Interface != NULL);
-  ASSERT (!EfiAtRuntime ());
-  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
-
   Status = mHandleProtocol (Handle, Protocol, Interface);
 
   if ((Status == EFI_UNSUPPORTED)
@@ -119,9 +101,8 @@ InternalHandleProtocol (
   return Status;
 }
 
-// InternalSetVirtualAddressMap
-/** Changes the runtime addressing mode of EFI firmware from physical to
-    virtual.
+/**
+  Changes the runtime addressing mode of EFI firmware from physical to virtual.
 
   @param[in] MemoryMapSize      The size in bytes of VirtualMap.
   @param[in] DescriptorSize     The size in bytes of an entry in the
@@ -142,6 +123,7 @@ InternalHandleProtocol (
                                  in the memory map that requires a mapping.
   @retval EFI_NOT_FOUND          A virtual address was supplied for an address
                                  that is not found in the memory map.
+
 **/
 STATIC
 EFI_STATUS
@@ -153,11 +135,7 @@ InternalSetVirtualAddressMap (
   IN EFI_MEMORY_DESCRIPTOR  *VirtualMap
   )
 {
-  ASSERT (MemoryMapSize > 0);
-  ASSERT (DescriptorSize > 0);
-  ASSERT (DescriptorSize < MemoryMapSize);
-  ASSERT ((MemoryMapSize % DescriptorSize) == 0);
-  ASSERT (VirtualMap != NULL);
+  ASSERT (mSetVirtualAddressMap != NULL);
 
   if (PcdGetBool (PcdPartialVirtualAddressMap)) {
     VirtualMap = GetPartialVirtualAddressMap (
@@ -184,12 +162,13 @@ InternalSetVirtualAddressMap (
 }
 
 #if 0
-// InternalXnuPrepareStartNotify
-/** Invoke a notification event
+/*
+  Invoke a notification event
 
   @param[in] Event    Event whose notification function is being invoked.
   @param[in] Context  The pointer to the notification function's context, which
                       is implementation-dependent.
+
 **/
 STATIC
 VOID
@@ -203,8 +182,8 @@ InternalXnuPrepareStartNotify (
 }
 #endif
 
-// InternalGetMemoryMap
-/** Returns the current memory map.
+/**
+  Returns the current memory map.
 
   @param[in, out] MemoryMapSize      A pointer to the size, in bytes, of the
                                      MemoryMap buffer.  On input, this is the
@@ -234,6 +213,7 @@ InternalXnuPrepareStartNotify (
   @retval EFI_INVALID_PARAMETER  1) MemoryMapSize is NULL.
                                  2) The MemoryMap buffer is not too small and
                                     MemoryMap is NULL.
+
 **/
 STATIC
 EFI_STATUS
@@ -250,12 +230,6 @@ InternalGetMemoryMap (
 
   EFI_STATUS     Status;
 
-  ASSERT (MemoryMapSize != NULL);
-  ASSERT ((((*MemoryMapSize > 0) ? 1 : 0)
-          ^ ((MemoryMap == NULL) ? 1 : 0)) != 0);
-
-  ASSERT (!EfiAtRuntime ());
-  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
   ASSERT (mGetMemoryMap != NULL);
 
   if (!NonAppleBooterCall) {
@@ -303,8 +277,8 @@ InternalGetMemoryMap (
   return Status;
 }
 
-// InternalExitBootServices
-/** Terminates all boot services.
+/**
+  Terminates all boot services.
 
   @param[in] ImageHandle  Handle that identifies the exiting image.
   @param[in] MapKey       Key to the latest memory map.
@@ -323,6 +297,8 @@ InternalExitBootServices (
 {
   EFI_STATUS Status;
 
+  ASSERT (mExitBootServices != NULL);
+
   mDisableMemoryAllocationServices = TRUE;
 
   Status = mExitBootServices (ImageHandle, MapKey);
@@ -332,8 +308,8 @@ InternalExitBootServices (
   return Status;
 }
 
-// InternalAllocatePages
-/** Allocates memory pages from the system.
+/**
+  Allocates memory pages from the system.
 
   @param[in]      Type        The type of allocation to perform.
   @param[in]      MemoryType  The type of memory to allocate.
@@ -357,6 +333,7 @@ InternalExitBootServices (
                                  4) MemoryType is EfiPersistentMemory.
   @retval EFI_OUT_OF_RESOURCES   The pages could not be allocated.
   @retval EFI_NOT_FOUND          The requested pages could not be found.
+
 **/
 STATIC
 EFI_STATUS
@@ -370,21 +347,6 @@ InternalAllocatePages (
 {
   EFI_STATUS Status;
 
-  ASSERT ((Type >= AllocateAnyPages) && (Type < MaxAllocateType));
-  ASSERT ((MemoryType < EfiMaxMemoryType) || (MemoryType > 0x6FFFFFFF));
-  ASSERT (MemoryType != EfiPersistentMemory);
-  ASSERT (Pages > 0);
-  ASSERT (Memory != NULL);
-  ASSERT ((*Memory != 0) || (Type == AllocateAnyPages));
-
-  ASSERT ((Type != AllocateMaxAddress)
-      || ((EFI_PAGES_TO_SIZE (Pages) - 1) <= (UINTN)*Memory));
-
-  ASSERT ((Type != AllocateAddress)
-      || (EFI_PAGES_TO_SIZE (Pages) - 1) <= (MAX_ADDRESS - (UINTN)*Memory));
-
-  ASSERT (!EfiAtRuntime ());
-  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
   ASSERT (mAllocatePages != NULL);
 
   Status = EFI_OUT_OF_RESOURCES;
@@ -405,8 +367,8 @@ InternalAllocatePages (
   return Status;
 }
 
-// InternalFreePages
-/** Frees memory pages.
+/**
+  Frees memory pages.
 
   @param[in] Memory  The base physical address of the pages to be freed.
   @param[in] Pages   The number of contiguous 4 KB pages to free.
@@ -416,6 +378,7 @@ InternalAllocatePages (
                                  is invalid.
   @retval EFI_NOT_FOUND          The requested memory pages were not allocated
                                  with AllocatePages().
+
 **/
 STATIC
 EFI_STATUS
@@ -427,11 +390,6 @@ InternalFreePages (
 {
   EFI_STATUS Status;
 
-  ASSERT (Memory != 0);
-  ASSERT (ALIGN_VALUE (Memory, EFI_PAGE_SIZE) == Memory);
-  ASSERT (Pages > 0);
-  ASSERT (!EfiAtRuntime ());
-  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
   ASSERT (mFreePages != NULL);
 
   Status = EFI_SUCCESS;
@@ -450,8 +408,8 @@ InternalFreePages (
   return Status;
 }
 
-// InternalAllocatePool
-/** Allocates pool memory.
+/**
+  Allocates pool memory.
 
   @param[in]  PoolType  The type of pool to allocate.  MemoryType values in the
                         range 0x70000000..0x7FFFFFFF are reserved for OEM use.
@@ -468,6 +426,7 @@ InternalFreePages (
                                  PoolType is in the range
                                  EfiMaxMemoryType..0x6FFFFFFF.
                                  PoolType is EfiPersistentMemory.
+
 **/
 STATIC
 EFI_STATUS
@@ -480,12 +439,6 @@ InternalAllocatePool (
 {
   EFI_STATUS Status;
 
-  ASSERT ((PoolType < EfiMaxMemoryType) || (PoolType > 0x6FFFFFFF));
-  ASSERT (PoolType != EfiPersistentMemory);
-  ASSERT (Size > 0);
-  ASSERT (Buffer != NULL);
-  ASSERT (!EfiAtRuntime ());
-  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
   ASSERT (mAllocatePool != NULL);
 
   Status = EFI_OUT_OF_RESOURCES;
@@ -506,8 +459,8 @@ InternalAllocatePool (
   return Status;
 }
 
-// InternalFreePool
-/** Returns pool memory to the system.
+/**
+  Returns pool memory to the system.
 
   @param[in] Buffer  The pointer to the buffer to free.
 
@@ -524,9 +477,6 @@ InternalFreePool (
 {
   EFI_STATUS Status;
 
-  ASSERT (Buffer != NULL);
-  ASSERT (!EfiAtRuntime ());
-  ASSERT (EfiGetCurrentTpl () <= TPL_NOTIFY);
   ASSERT (mFreePool != NULL);
 
   Status = EFI_SUCCESS;

@@ -25,6 +25,7 @@
   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE.
+
 **/
 
 #include <Uefi.h>
@@ -41,31 +42,21 @@
 
 #include "FirmwareFixesInternal.h"
 
-// FIRMWARE_FIXES_PRIVATE_DATA
-typedef struct {
-  EFI_EVENT AppleBooterHandleNotifyEvent;
-  VOID      *AppleBooterHandleRegistration;
-} FIRMWARE_FIXES_PRIVATE_DATA;
+STATIC EFI_EVENT mAppleBooterHandleNotifyEvent   = NULL;
+STATIC VOID      *mAppleBooterHandleRegistration = NULL;
 
-// mPrivateData
-STATIC FIRMWARE_FIXES_PRIVATE_DATA mPrivateData = {
-  NULL,
-  NULL
-};
-
-// mAppleBooterLevel
 STATIC UINTN mAppleBooterLevel = 0;
 
-// mXnuPrepareStartSignaledInCurrentBooter
 GLOBAL_REMOVE_IF_UNREFERENCED
 BOOLEAN mXnuPrepareStartSignaledInCurrentBooter = FALSE;
 
-// InternalAppleBooterExitNotify
-/** Invoke a notification event
+/**
+  Invoke a notification event
 
   @param[in] Event    Event whose notification function is being invoked.
   @param[in] Context  The pointer to the notification function's context,
                       which is implementation-dependent.
+
 **/
 STATIC
 VOID
@@ -88,12 +79,13 @@ InternalAppleBooterExitNotify (
   }
 }
 
-// InternalAppleBooterStartNotify
-/** Invoke a notification event
+/**
+  Invoke a notification event
 
   @param[in] Event    Event whose notification function is being invoked.
   @param[in] Context  The pointer to the notification function's context,
                       which is implementation-dependent.
+
 **/
 STATIC
 VOID
@@ -103,15 +95,16 @@ InternalAppleBooterStartNotify (
   IN VOID       *Context
   )
 {
+  //
   // The allocation might have failed, so run thus on any level.
+  //
   if (PcdGetBool (PcdPreserveSystemTable)) {
-    InternalOverrideSystemTable (mPrivateData.AppleBooterHandleRegistration);
+    InternalOverrideSystemTable (mAppleBooterHandleRegistration);
   }
 
   DEBUG_CODE (
     mXnuPrepareStartSignaledInCurrentBooter = FALSE;
     );
-
 
   if (mAppleBooterLevel == 0) {
     OverrideFirmwareServices ();
@@ -128,7 +121,6 @@ InternalAppleBooterStartNotify (
   ++mAppleBooterLevel;
 }
 
-// FirmwareFixesLibConstructor
 VOID
 FirmwareFixesLibConstructor (
   VOID
@@ -142,26 +134,24 @@ FirmwareFixesLibConstructor (
             );
 
   if (Event != NULL) {
-    mPrivateData.AppleBooterHandleNotifyEvent = Event;
-
+    mAppleBooterHandleNotifyEvent = Event;
 
     EfiRegisterProtocolNotify (
       &gAppleBooterHandleProtocolGuid,
-      mPrivateData.AppleBooterHandleNotifyEvent,
-      &mPrivateData.AppleBooterHandleRegistration
+      mAppleBooterHandleNotifyEvent,
+      &mAppleBooterHandleRegistration
       );
   }
 }
 
-// FirmwareFixesLibDestructor
 VOID
 FirmwareFixesLibDestructor (
   VOID
   )
 {
-  if (mPrivateData.AppleBooterHandleNotifyEvent != NULL) {
-    EfiCloseEvent (mPrivateData.AppleBooterHandleNotifyEvent);
+  if (mAppleBooterHandleNotifyEvent != NULL) {
+    EfiCloseEvent (mAppleBooterHandleNotifyEvent);
 
-    mPrivateData.AppleBooterHandleNotifyEvent = NULL;
+    mAppleBooterHandleNotifyEvent = NULL;
   }
 }
