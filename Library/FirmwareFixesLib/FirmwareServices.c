@@ -495,7 +495,6 @@ InternalFreePool (
   return Status;
 }
 
-// OverrideFirmwareServices
 VOID
 OverrideFirmwareServices (
   VOID

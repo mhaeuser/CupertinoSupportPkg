@@ -52,6 +52,5 @@
   FirmwareFixesInternal.h
   FirmwareFixesLib.c
   FirmwareServices.c
-  Memory.c
   MemoryMap.c
   SystemTable.c
