@@ -86,26 +86,34 @@ ASM_PFX (gKernelEntryHook32End):
 ;   );
 ;------------------------------------------------------------------------------
 ASM_PFX (KernelEntryHandler32):
+    ; TODO: Consider using a stack frame to avoid further calculation bugs.
+    ;       Set up CR0 and Multimedia-extensions control word according to the
+    ;       CC.
     ;
     ; Assertion: cs is on the top of the stack.
     ; NOTE: This function does not save or change MMX registers.
     ;
 
+    ;
     ; Push the kernel entry point address to stack so retf will jump there,
     ; this preserves the caller cs.  The entry address will be rebased later.
+    ;
     PUSH_OP
 .ASM_PFX (KernelEntryAddress):
     dd      0FFFFFFFFh
+    ; Size: 4 bytes
 
     ;
     ; Save context.
     ;
 
+    ;
     ; Save the eflags register, the remaining segment selectors and all
     ; general-purpose registers.
     ;
     ; Note: When selectors are pushed, the stack is automatically aligned to
     ;       the next 32-bit boundary.
+    ;
     pushfd                      ; 4 bytes
     push    ds                  ; 4 bytes
     push    es                  ; 4 bytes
@@ -113,24 +121,26 @@ ASM_PFX (KernelEntryHandler32):
     push    gs                  ; 4 bytes
     pushad                      ; 8 * 4 bytes
     mov     eax, cr0
-    push    eax
-    ; Total size: 52 bytes
+    push    eax                 ; 4 bytes
+    ; Total context size: 56 bytes
+    ; Total size: 60 bytes
 
     ; Rebase the return address to the caller cs.
     xor     ebx, ebx
-    mov     bx, [ss:esp + 56]   ; Caller cs
+    mov     bx, [ss:esp + 60]   ; Caller cs
     test    bx, bx
     jz      short .ASM_PFX (CallerCsIsFlat)
     shl     ebx, 4              ; Multiply with 16; Selectors move in 16-byte steps.
-    sub     [ss:esp + 52], ebx  ; Subtract the selector start from the flat address.
+    sub     [ss:esp + 56], ebx  ; Subtract the selector start from the flat address.
 .ASM_PFX (CallerCsIsFlat):
     ; Save the caller stack.
     mov     edi, esp
 
-    sub     esp, 02h
+    ;
+    ; Save the Floating-point control word.
+    ;
+    sub     esp, 2
     fstcw   word [esp]
-    mov     word [esp + 2], 027Fh
-    fldcw   word [esp + 2]
 
     ;
     ; Prepare compliance with the UEFI IA-32 calling convention.
@@ -138,6 +148,12 @@ ASM_PFX (KernelEntryHandler32):
 
     cld
     clts
+
+    ;
+    ; Set up the Floating-point control word.
+    ;
+    mov     word [esp - 2], 0x027F
+    fldcw   word [esp - 2]
 
     ALIGN_VALUE esp, STACK_ALIGN
 
@@ -153,7 +169,7 @@ ASM_PFX (KernelEntryHandler32):
     ; Call the EFIAPI C code.
     ;
 
-    ALIGN_STACK_PRE_PUSH 2
+    ALIGN_STACK_PRE_PUSH  1     ; two arguments + return address
 
     ; Push the arguments to the stack.
     push    eax                 ; BootArgs
