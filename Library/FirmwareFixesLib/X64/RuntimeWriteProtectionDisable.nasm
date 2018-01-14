@@ -1,5 +1,6 @@
 ;; @file
-; Helper procedures to pass data to the XNU kernel hook procedures.
+; Runtime Services shim implementations that disable the CR0 Write Protection
+; before handing off.
 ;
 ; Copyright (C) 2017, vit9696.  All rights reserved.<BR>
 ; Portions Copyright (C) 2017, CupertinoNet.  All rights reserved.<BR>
@@ -21,36 +22,7 @@
 BITS     64
 DEFAULT  REL
 
-;
-; Call the function at the given address with the Write Protection turned off.
-;
-%macro CALL_DISABLE_WP 1
-    push       rsi
-    push       rbx
-    sub        rsp, 0x38
-    pushfq
-    pop        rsi
-    cli
-    mov        rbx, cr0
-    mov        rax, rbx
-    and        rax, 0xFFFFFFFFFFFEFFFF
-    mov        cr0, rax
-    mov        rax, qword [rsp+0x70]
-    mov        qword [rsp+0x20], rax
-    mov        rax, %1
-    call       rax
-    test       ebx, 0x10000
-    je         SET_SKIP_RESTORE_WP
-    mov        cr0, rbx
-SET_SKIP_RESTORE_WP:
-    test       esi, 0x200
-    je         SET_SKIP_RESTORE_INTR
-    sti
-SET_SKIP_RESTORE_INTR:
-    add        rsp, 0x38
-    pop        rbx
-    pop        rsi
-%endmacro
+#define ASM_PFX(x) _x
 
 SECTION .text
 
@@ -60,18 +32,87 @@ ASM_PFX (gRtWpDisableShimsDataStart):
 
 global ASM_PFX (RtWpDisableSetVariable)
 ASM_PFX (RtWpDisableSetVariable):
-    CALL_DISABLE_WP qword [ASM_PFX (gSetVariable)]
+    push       rsi
+    push       rbx
+    sub        rsp, 0x38
+    pushfq
+    pop        rsi
+    cli
+    mov        rbx, cr0
+    mov        rax, rbx
+    and        rax, ~0x10000
+    mov        cr0, rax
+    mov        rax, qword [rsp+0x70]
+    mov        qword [rsp+0x20], rax
+    mov        rax, qword [ASM_PFX (gSetVariable)]
+    call       rax
+    test       ebx, 0x10000
+    je         .SET_SKIP_RESTORE_WP
+    mov        cr0, rbx
+.SET_SKIP_RESTORE_WP:
+    test       esi, 0x200
+    je         .SET_SKIP_RESTORE_INTR
+    sti
+.SET_SKIP_RESTORE_INTR:
+    add        rsp, 0x38
+    pop        rbx
+    pop        rsi
     ret
 
 global ASM_PFX (RtWpDisableGetVariable)
 ASM_PFX (RtWpDisableGetVariable):
-    CALL_DISABLE_WP qword [ASM_PFX (gGetVariable)]
+    push       rsi
+    push       rbx
+    sub        rsp, 0x38
+    pushfq
+    pop        rsi
+    cli
+    mov        rbx, cr0
+    mov        rax, rbx
+    and        rax, ~0x10000
+    mov        cr0, rax
+    mov        rax, qword [rsp+0x70]
+    mov        qword [rsp+0x20], rax
+    mov        rax, qword [ASM_PFX (gGetVariable)]
+    call       rax
+    test       ebx, 0x10000
+    je         .SET_SKIP_RESTORE_WP
+    mov        cr0, rbx
+.SET_SKIP_RESTORE_WP:
+    test       esi, 0x200
+    je         .SET_SKIP_RESTORE_INTR
+    sti
+.SET_SKIP_RESTORE_INTR:
+    add        rsp, 0x38
+    pop        rbx
     pop        rsi
     ret
 
 global ASM_PFX (RtWpDisableGetNextVariableName)
 ASM_PFX (RtWpDisableGetNextVariableName):
-    CALL_DISABLE_WP qword [ASM_PFX (gGetNextVariableName)]
+    push       rsi
+    push       rbx
+    sub        rsp, 0x28
+    pushfq
+    pop        rsi
+    cli
+    mov        rbx, cr0
+    mov        rax, rbx
+    and        rax, ~0x10000
+    mov        cr0, rax
+    mov        rax, qword [ASM_PFX (gGetNextVariableName)]
+    call       rax
+    test       ebx, 0x10000
+    je         .NEXT_SKIP_RESTORE_WP
+    mov        cr0, rbx
+.NEXT_SKIP_RESTORE_WP:
+    test       esi, 0x200
+    je         .NEXT_SKIP_RESTORE_INTR
+    sti
+.NEXT_SKIP_RESTORE_INTR:
+    add        rsp, 0x28
+    pop        rbx
+    pop        rsi
     ret
 
 
