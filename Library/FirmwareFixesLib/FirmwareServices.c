@@ -549,7 +549,7 @@ OverrideFirmwareServices (
     gBS->FreePool = InternalFreePool;
   }
 
-  UPDATE_EFI_TABLE_HEADER_CRC32 (gBS->Hdr);
+  UPDATE_EFI_TABLE_CRC32 (gBS);
 
   if (PcdGetBool (PcdPartialVirtualAddressMap) || Result) {
     mSetVirtualAddressMap     = gRT->SetVirtualAddressMap;
@@ -597,7 +597,7 @@ OverrideFirmwareServices (
     gRtWpDisableShims = NULL;
   }
 
-  UPDATE_EFI_TABLE_HEADER_CRC32 (gRT->Hdr);
+  UPDATE_EFI_TABLE_CRC32 (gRT);
 
   EfiRestoreTPL (OldTpl);
 
@@ -633,12 +633,12 @@ RestoreFirmwareServices (
     gBS->FreePool         = mFreePool;
   }
 
-  UPDATE_EFI_TABLE_HEADER_CRC32 (gBS->Hdr);
+  UPDATE_EFI_TABLE_CRC32 (gBS);
 
   if (mSetVirtualAddressMap != NULL) {
     gRT->SetVirtualAddressMap = mSetVirtualAddressMap;
 
-    UPDATE_EFI_TABLE_HEADER_CRC32 (gRT->Hdr);
+    UPDATE_EFI_TABLE_CRC32 (gRT);
   }
 
   EfiRestoreTPL (OldTpl);

@@ -13,6 +13,7 @@
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
+
 **/
 
 #include <Uefi.h>
@@ -29,18 +30,18 @@
 
 #include "KernelEntryHookInternal.h"
 
-// KernelEntryHook
 VOID
 KernelEntryHook (
   IN OUT UINTN  KernelEntryAddress
   )
 {
+  //
   // XNU Kernel transition always happens in protected mode.  This is an
   // assertion made by this function.
+  //
 
   UINTN                     NotifyEntry;
   UINTN                     MemorySize;
-  VOID                      *Memory;
   KERNEL_ENTRY_HOOK_CONTEXT *Context;
   VOID                      *HandlerEntry;
 
@@ -55,13 +56,12 @@ KernelEntryHook (
   if (NotifyEntry != 0) {
     MemorySize = (sizeof (*Context) + KERNEL_ENTRY_HOOK_32_SIZE);
 
-    Memory = AllocateXnuSupportData (MemorySize);
+    Context = (KERNEL_ENTRY_HOOK_CONTEXT *)AllocateXnuSupportData (MemorySize);
 
-    if (Memory != NULL) {
+    if (Context != NULL) {
       HandlerEntry = AllocateXnuSupportCode (KERNEL_ENTRY_HANDLER_32_SIZE);
 
       if (HandlerEntry != NULL) {
-        Context                      = (KERNEL_ENTRY_HOOK_CONTEXT *)Memory;
         Context->Hdr.Signature       = KERNEL_ENTRY_HOOK_CONTEXT_SIGNATURE;
         Context->Hdr.KernelEntry     = (UINT32)KernelEntryAddress;
         Context->Hdr.KernelEntrySize = (UINT32)KERNEL_ENTRY_HOOK_32_SIZE;
@@ -92,7 +92,7 @@ KernelEntryHook (
           );
       } else {
         FreeXnuSupportMemory (
-          Memory,
+          (VOID *)Context,
           MemorySize
           );
       }
@@ -100,7 +100,6 @@ KernelEntryHook (
   }
 }
 
-// KernelHookPatchEntry
 VOID
 KernelHookPatchEntry (
   IN OUT VOID   *KernelHeader,
@@ -120,7 +119,6 @@ KernelHookPatchEntry (
   }
 }
 
-// KernelHookPatchHibernationEntry
 VOID
 KernelHookPatchHibernationEntry (
   IN IO_HIBERNATE_IMAGE_HEADER  *ImageHeader
